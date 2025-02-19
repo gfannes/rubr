@@ -1,6 +1,8 @@
 const std = @import("std");
 const ut = std.testing;
 
+const Ignore = @import("walker/ignore.zig");
+
 // &todo Add support for .gitignore files
 
 const Walker = struct {
