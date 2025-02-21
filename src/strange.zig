@@ -15,19 +15,44 @@ pub const Strange = struct {
         return self.content.len;
     }
 
+    pub fn str(self: Strange) []const u8 {
+        return self.content;
+    }
+
+    pub fn popAll(self: *Strange) ?[]const u8 {
+        if (self.empty()) return null;
+        const ret = self.content;
+        self.content = &.{};
+        return ret;
+    }
+
+    pub fn popTo(self: *Strange, ch: u8) ?[]const u8 {
+        if (std.mem.indexOfScalar(u8, self.content, ch)) |ix| {
+            const ret = self.content[0..ix];
+            self._popFront(ix + 1);
+            return ret;
+        } else {
+            return null;
+        }
+    }
+
     pub fn popLine(self: *Strange) ?[]const u8 {
         if (self.empty()) return null;
 
         var line = self.content;
         if (std.mem.indexOfScalar(u8, self.content, '\n')) |ix| {
             line.len = if (ix > 0 and self.content[ix - 1] == '\r') ix - 1 else ix;
-            self.content.ptr += ix + 1;
-            self.content.len -= ix + 1;
+            self._popFront(ix + 1);
         } else {
             self.content = &.{};
         }
 
         return line;
+    }
+
+    fn _popFront(self: *Strange, count: usize) void {
+        self.content.ptr += count;
+        self.content.len -= count;
     }
 };
 
@@ -50,4 +75,12 @@ test "Strange.popLine" {
     } else unreachable;
     if (strange.popLine()) |_| unreachable;
     try ut.expectEqual(true, strange.empty());
+}
+
+test "Strange.popTo Strange.popAll" {
+    var strange = Strange.new("abc");
+    if (strange.popTo('b')) |part| {
+        try ut.expectEqualSlices(u8, "a", part);
+        try ut.expectEqualSlices(u8, "c", strange.str());
+    } else unreachable;
 }
