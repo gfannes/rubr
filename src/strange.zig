@@ -20,24 +20,35 @@ pub const Strange = struct {
     }
 
     pub fn popAll(self: *Strange) ?[]const u8 {
-        if (self.empty()) return null;
-        const ret = self.content;
-        self.content = &.{};
-        return ret;
+        if (self.empty())
+            return null;
+        defer self.content = &.{};
+        return self.content;
+    }
+
+    pub fn popMany(self: *Strange, ch: u8) usize {
+        for (self.content, 0..) |act, ix| {
+            if (act != ch) {
+                self._popFront(ix);
+                return ix;
+            }
+        }
+        defer self.content = &.{};
+        return self.content.len;
     }
 
     pub fn popTo(self: *Strange, ch: u8) ?[]const u8 {
         if (std.mem.indexOfScalar(u8, self.content, ch)) |ix| {
-            const ret = self.content[0..ix];
-            self._popFront(ix + 1);
-            return ret;
+            defer self._popFront(ix + 1);
+            return self.content[0..ix];
         } else {
             return null;
         }
     }
 
     pub fn popLine(self: *Strange) ?[]const u8 {
-        if (self.empty()) return null;
+        if (self.empty())
+            return null;
 
         var line = self.content;
         if (std.mem.indexOfScalar(u8, self.content, '\n')) |ix| {
@@ -83,4 +94,15 @@ test "Strange.popTo Strange.popAll" {
         try ut.expectEqualSlices(u8, "a", part);
         try ut.expectEqualSlices(u8, "c", strange.str());
     } else unreachable;
+}
+
+test "Strange.popMany" {
+    var strange = Strange.new("abbc");
+    try ut.expectEqual(0, strange.popMany('z'));
+    try ut.expectEqual(1, strange.popMany('a'));
+    try ut.expectEqual(0, strange.popMany('a'));
+    try ut.expectEqual(2, strange.popMany('b'));
+    try ut.expectEqual(0, strange.popMany('b'));
+    try ut.expectEqual(1, strange.popMany('c'));
+    try ut.expectEqual(0, strange.popMany('c'));
 }
