@@ -1,50 +1,97 @@
 const std = @import("std");
 const ut = std.testing;
 
-const GlobError = error{
-    EmptyPattern,
-};
-
 const Strange = @import("strange.zig").Strange;
 
-const Part = struct {
-    const Wildcard = enum { Nothing, Anything, NoPathSep, End };
+const GlobError = error{
+    EmptyPattern,
+    IllegalWildcard,
+};
 
+const Wildcard = enum {
+    Nothing,
+    NoPathSep,
+    Anything,
+
+    pub fn fromStr(str: []const u8) !Wildcard {
+        if (str.len == 0)
+            return Wildcard.Nothing;
+        if (std.mem.eql(u8, str, "*"))
+            return Wildcard.NoPathSep;
+        if (std.mem.eql(u8, str, "**"))
+            return Wildcard.Anything;
+        return GlobError.IllegalWildcard;
+    }
+
+    pub fn max(a: Wildcard, b: Wildcard) Wildcard {
+        switch (a) {
+            Wildcard.Nothing => return b,
+            Wildcard.NoPathSep => return if (b == Wildcard.Nothing) a else b,
+            Wildcard.Anything => return a,
+        }
+    }
+};
+
+// A Part is easy to match: search for str and check if whatever in-between matches with wildcard
+const Part = struct {
     wildcard: Wildcard,
     str: []const u8,
 };
 
-const Glob = struct {
+pub const Config = struct {
+    pattern: []const u8 = &.{},
+    front: []const u8 = &.{},
+    back: []const u8 = &.{},
+};
+
+pub const Glob = struct {
     const Self = @This();
     const Parts = std.ArrayList(Part);
 
     ma: std.mem.Allocator,
     parts: Parts,
 
-    pub fn new(pattern: []const u8, ma: std.mem.Allocator) !Glob {
-        if (pattern.len == 0)
+    pub fn new(config: Config, ma: std.mem.Allocator) !Glob {
+        if (config.pattern.len == 0)
             return GlobError.EmptyPattern;
 
         var glob = Glob{ .ma = ma, .parts = Parts.init(ma) };
 
-        var wildcard = Part.Wildcard.Nothing;
-        var strange = Strange.new(pattern);
-        while (strange.popTo('*')) |str| {
-            std.debug.print("part: {s}\n", .{str});
-            if (str.len > 0) {
-                try glob.parts.append(Part{ .wildcard = wildcard, .str = str });
-            }
-            // We found a single '*', check for more '*' to decide if we can match path separators as well
-            wildcard = if (strange.popMany('*') > 0) Part.Wildcard.Anything else Part.Wildcard.NoPathSep;
-        }
+        var strange = Strange.new(config.pattern);
 
-        if (strange.popAll()) |str| {
-            // pattern does not end with a '*'
-            try glob.parts.append(Part{ .wildcard = wildcard, .str = str });
-            try glob.parts.append(Part{ .wildcard = Part.Wildcard.End, .str = "" });
-        } else {
-            // pattern ends with a '*'
-            try glob.parts.append(Part{ .wildcard = wildcard, .str = "" });
+        var wildcard = try Wildcard.fromStr(config.front);
+
+        while (true) {
+            if (strange.popTo('*')) |str| {
+                if (str.len > 0) {
+                    try glob.parts.append(Part{ .wildcard = wildcard, .str = str });
+                }
+
+                // We found a single '*', check for more '*' to decide if we can match path separators as well
+                {
+                    const new_wildcard = if (strange.popMany('*') > 0) Wildcard.Anything else Wildcard.NoPathSep;
+
+                    if (str.len == 0) {
+                        // When pattern starts with a '*', keep the config.front wildcard if it is stronger
+                        wildcard = Wildcard.max(wildcard, new_wildcard);
+                    } else {
+                        wildcard = new_wildcard;
+                    }
+                }
+
+                if (strange.empty()) {
+                    // We popped everything from strange and will hence not enter below's branch: setup wildcard according to config.back
+                    const new_wildcard = try Wildcard.fromStr(config.back);
+                    wildcard = Wildcard.max(wildcard, new_wildcard);
+                }
+            } else if (strange.popAll()) |str| {
+                try glob.parts.append(Part{ .wildcard = wildcard, .str = str });
+
+                wildcard = try Wildcard.fromStr(config.back);
+            } else {
+                try glob.parts.append(Part{ .wildcard = wildcard, .str = "" });
+                break;
+            }
         }
 
         return glob;
@@ -64,14 +111,14 @@ const Glob = struct {
         const part = &parts[0];
 
         switch (part.wildcard) {
-            Part.Wildcard.Nothing => {
+            Wildcard.Nothing => {
                 if (!std.mem.startsWith(u8, haystack, part.str))
                     return false;
                 return _match(parts[1..], haystack[part.str.len..]);
             },
-            Part.Wildcard.Anything => {
+            Wildcard.Anything => {
                 if (part.str.len == 0) {
-                    // This is a special case with an empty part.str: this should only for the last part
+                    // This is a special case with an empty part.str: this should only be used for the last part
                     // Accept a full match until the end if this is the last part.
                     // If this is not the last part, something unexpected happened: Glob.new() should not produce something like that
                     return parts.len == 1;
@@ -90,7 +137,7 @@ const Glob = struct {
                 }
                 return false;
             },
-            Part.Wildcard.NoPathSep => {
+            Wildcard.NoPathSep => {
                 if (part.str.len == 0) {
                     // This is a special case with an empty part.str: this should only for the last part
                     // Accept a full match if there is no path separator
@@ -119,16 +166,12 @@ const Glob = struct {
                 }
                 return false;
             },
-            Part.Wildcard.End => {
-                // Accept if we fully matched haystack
-                return haystack.len == 0;
-            },
         }
     }
 };
 
 test "glob" {
-    var glob = try Glob.new("*ab*c*", ut.allocator);
+    var glob = try Glob.new(.{ .pattern = "*ab*c*" }, ut.allocator);
     defer glob.deinit();
 
     try ut.expect(glob.match("abc"));
@@ -139,7 +182,7 @@ test "glob" {
 }
 
 test "without path separator" {
-    var glob = try Glob.new("*.wav", ut.allocator);
+    var glob = try Glob.new(.{ .pattern = "*.wav" }, ut.allocator);
     defer glob.deinit();
 
     try ut.expect(glob.match("abc.wav"));
@@ -149,7 +192,7 @@ test "without path separator" {
 }
 
 test "with path separator" {
-    var glob = try Glob.new("**.wav", ut.allocator);
+    var glob = try Glob.new(.{ .pattern = "**.wav" }, ut.allocator);
     defer glob.deinit();
 
     try ut.expect(glob.match("abc.wav"));

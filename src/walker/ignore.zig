@@ -1,27 +1,24 @@
 const std = @import("std");
 const ut = std.testing;
 
-const strange = @import("../strange.zig");
+const Strange = @import("../strange.zig").Strange;
+const glob = @import("../glob.zig");
 
 const Ignore = struct {
     const Self = @This();
-    const Strings = std.ArrayList([]const u8);
+    const Globs = std.ArrayList(glob.Glob);
 
     ma: std.mem.Allocator,
-    folders: Strings,
-    names: Strings,
+    globs: Globs,
 
     pub fn new(ma: std.mem.Allocator) Ignore {
-        return Ignore{ .ma = ma, .folders = Strings.init(ma), .names = Strings.init(ma) };
+        return Ignore{ .ma = ma, .globs = Globs.init(ma) };
     }
 
     pub fn deinit(self: *Self) void {
-        for (self.folders.items) |folder|
-            self.ma.free(folder);
-        self.folders.deinit();
-        for (self.names.items) |name|
-            self.ma.free(name);
-        self.names.deinit();
+        for (self.globs.items) |*item|
+            item.deinit();
+        self.globs.deinit();
     }
 
     const Error = error{NotImplemented};
@@ -44,27 +41,51 @@ const Ignore = struct {
         var ret = Self.new(ma);
         errdefer ret.deinit();
 
-        var strng = strange.Strange.new(content);
-        while (strng.popLine()) |line| {
-            std.debug.print("line: {s}\n", .{line});
-            if (std.mem.endsWith(u8, line, "/")) {
-                try ret.folders.append(try ma.dupe(u8, line[0 .. line.len - 1]));
-            } else {
-                try ret.names.append(try ma.dupe(u8, line));
+        var strange_content = Strange.new(content);
+        while (strange_content.popLine()) |line| {
+            var strange_line = Strange.new(line);
+
+            // Trim
+            _ = strange_line.popMany(' ');
+            _ = strange_line.popManyBack(' ');
+
+            if (strange_line.popMany('#') > 0)
+                // Skip comments
+                continue;
+
+            if (strange_line.empty())
+                continue;
+
+            var config = glob.Config{ .pattern = strange_line.str() };
+            if (strange_line.back() == '/') {
+                config.back = "**";
             }
+
+            try ret.globs.append(try glob.Glob.new(config, ma));
         }
 
         return ret;
     }
+
+    pub fn match(self: Self, fp: []const u8) bool {
+        for (self.globs.items) |item| {
+            if (item.match(fp))
+                return true;
+        }
+        return false;
+    }
 };
 
 test "loadFromContent" {
-    const content = "dir/\nfile\n#comment\n\n*.ext";
+    const content = " dir/ \n file\n #comment\n\n *.ext  ";
 
     var ignore = try Ignore.loadFromContent(content, ut.allocator);
     defer ignore.deinit();
 
-    std.debug.print("ignore: {}\n", .{ignore});
-    std.debug.print("folders: {s}\n", .{ignore.folders.items});
-    std.debug.print("names: {s}\n", .{ignore.names.items});
+    try ut.expect(ignore.match("dir/"));
+    try ut.expect(ignore.match("dir/abc"));
+    try ut.expect(ignore.match("file"));
+    try ut.expect(ignore.match("test.ext"));
+
+    try ut.expect(!ignore.match("#comment"));
 }

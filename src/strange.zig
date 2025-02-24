@@ -19,6 +19,17 @@ pub const Strange = struct {
         return self.content;
     }
 
+    pub fn front(self: Strange) ?u8 {
+        if (self.content.len == 0)
+            return null;
+        return self.content[0];
+    }
+    pub fn back(self: Strange) ?u8 {
+        if (self.content.len == 0)
+            return null;
+        return self.content[self.content.len - 1];
+    }
+
     pub fn popAll(self: *Strange) ?[]const u8 {
         if (self.empty())
             return null;
@@ -35,6 +46,14 @@ pub const Strange = struct {
         }
         defer self.content = &.{};
         return self.content.len;
+    }
+    pub fn popManyBack(self: *Strange, ch: u8) usize {
+        var count: usize = 0;
+        while (self.content.len > 0 and self.content[self.content.len - 1] == ch) {
+            self.content.len -= 1;
+            count += 1;
+        }
+        return count;
     }
 
     pub fn popTo(self: *Strange, ch: u8) ?[]const u8 {
@@ -105,4 +124,24 @@ test "Strange.popMany" {
     try ut.expectEqual(0, strange.popMany('b'));
     try ut.expectEqual(1, strange.popMany('c'));
     try ut.expectEqual(0, strange.popMany('c'));
+}
+
+test "Strange.popManyBack" {
+    var strange = Strange.new("abbc");
+    try ut.expectEqual(0, strange.popManyBack('z'));
+    try ut.expectEqual(1, strange.popManyBack('c'));
+    try ut.expectEqual(0, strange.popManyBack('c'));
+    try ut.expectEqual(2, strange.popManyBack('b'));
+    try ut.expectEqual(0, strange.popManyBack('b'));
+    try ut.expectEqual(1, strange.popManyBack('a'));
+    try ut.expectEqual(0, strange.popManyBack('a'));
+}
+
+test "Strange.front Strange.back" {
+    var strange = Strange.new("abc");
+    try ut.expectEqual(@as(?u8, 'a'), strange.front());
+    try ut.expectEqual(@as(?u8, 'c'), strange.back());
+    _ = strange.popAll();
+    try ut.expectEqual(@as(?u8, null), strange.front());
+    try ut.expectEqual(@as(?u8, null), strange.back());
 }
