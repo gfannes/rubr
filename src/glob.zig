@@ -3,32 +3,57 @@ const ut = std.testing;
 
 const Strange = @import("strange.zig").Strange;
 
-const GlobError = error{
+const Error = error{
     EmptyPattern,
     IllegalWildcard,
 };
 
 const Wildcard = enum {
-    Nothing,
-    NoPathSep,
-    Anything,
+    None,
+    Some, // '*': All characters except path separator '/'
+    All, // '**': All characters
 
     pub fn fromStr(str: []const u8) !Wildcard {
         if (str.len == 0)
-            return Wildcard.Nothing;
+            return Wildcard.None;
         if (std.mem.eql(u8, str, "*"))
-            return Wildcard.NoPathSep;
+            return Wildcard.Some;
         if (std.mem.eql(u8, str, "**"))
-            return Wildcard.Anything;
-        return GlobError.IllegalWildcard;
+            return Wildcard.All;
+        return Error.IllegalWildcard;
     }
 
     pub fn max(a: Wildcard, b: Wildcard) Wildcard {
-        switch (a) {
-            Wildcard.Nothing => return b,
-            Wildcard.NoPathSep => return if (b == Wildcard.Nothing) a else b,
-            Wildcard.Anything => return a,
-        }
+        return switch (a) {
+            Wildcard.None => b,
+            Wildcard.Some => if (b == Wildcard.None) a else b,
+            Wildcard.All => a,
+        };
+    }
+
+    test "fromStr" {
+        try ut.expectEqual(Wildcard.None, Wildcard.fromStr(""));
+        try ut.expectEqual(Wildcard.Some, Wildcard.fromStr("*"));
+        try ut.expectEqual(Wildcard.All, Wildcard.fromStr("**"));
+        try ut.expectEqual(Error.IllegalWildcard, Wildcard.fromStr("x"));
+    }
+
+    test "max" {
+        const nothing = Wildcard.None;
+        const nopathsep = Wildcard.Some;
+        const anything = Wildcard.All;
+
+        try ut.expectEqual(Wildcard.None, Wildcard.max(nothing, nothing));
+
+        try ut.expectEqual(Wildcard.Some, Wildcard.max(nothing, nopathsep));
+        try ut.expectEqual(Wildcard.Some, Wildcard.max(nopathsep, nothing));
+        try ut.expectEqual(Wildcard.Some, Wildcard.max(nopathsep, nopathsep));
+
+        try ut.expectEqual(Wildcard.All, Wildcard.max(nothing, anything));
+        try ut.expectEqual(Wildcard.All, Wildcard.max(anything, nothing));
+        try ut.expectEqual(Wildcard.All, Wildcard.max(nopathsep, anything));
+        try ut.expectEqual(Wildcard.All, Wildcard.max(anything, nopathsep));
+        try ut.expectEqual(Wildcard.All, Wildcard.max(anything, anything));
     }
 };
 
@@ -53,7 +78,7 @@ pub const Glob = struct {
 
     pub fn new(config: Config, ma: std.mem.Allocator) !Glob {
         if (config.pattern.len == 0)
-            return GlobError.EmptyPattern;
+            return Error.EmptyPattern;
 
         var glob = Glob{ .ma = ma, .parts = Parts.init(ma) };
 
@@ -69,7 +94,7 @@ pub const Glob = struct {
 
                 // We found a single '*', check for more '*' to decide if we can match path separators as well
                 {
-                    const new_wildcard = if (strange.popMany('*') > 0) Wildcard.Anything else Wildcard.NoPathSep;
+                    const new_wildcard = if (strange.popMany('*') > 0) Wildcard.All else Wildcard.Some;
 
                     if (str.len == 0) {
                         // When pattern starts with a '*', keep the config.front wildcard if it is stronger
@@ -108,24 +133,38 @@ pub const Glob = struct {
     fn _match(parts: []const Part, haystack: []const u8) bool {
         if (parts.len == 0)
             return true;
+
         const part = &parts[0];
 
         switch (part.wildcard) {
-            Wildcard.Nothing => {
+            Wildcard.None => {
+                if (part.str.len == 0) {
+                    // This is a special case with an empty part.str: this should only for the last part
+                    std.debug.assert(parts.len == 1);
+
+                    // None only matches if we are at the end
+                    return haystack.len == 0;
+                }
+
                 if (!std.mem.startsWith(u8, haystack, part.str))
                     return false;
+
                 return _match(parts[1..], haystack[part.str.len..]);
             },
-            Wildcard.Anything => {
+            Wildcard.Some => {
                 if (part.str.len == 0) {
-                    // This is a special case with an empty part.str: this should only be used for the last part
-                    // Accept a full match until the end if this is the last part.
-                    // If this is not the last part, something unexpected happened: Glob.new() should not produce something like that
-                    return parts.len == 1;
+                    // This is a special case with an empty part.str: this should only for the last part
+                    std.debug.assert(parts.len == 1);
+
+                    // Accept a full match if there is no path separator
+                    return std.mem.indexOfScalar(u8, haystack, '/') == null;
                 } else {
                     var start: usize = 0;
                     while (start < haystack.len) {
                         if (std.mem.indexOf(u8, haystack[start..], part.str)) |ix| {
+                            if (std.mem.indexOfScalar(u8, haystack[start .. start + ix], '/')) |_|
+                                // We found a path separator: this is not a match
+                                return false;
                             if (_match(parts[1..], haystack[start + ix + part.str.len ..]))
                                 // We found a match for the other parts
                                 return true;
@@ -137,24 +176,18 @@ pub const Glob = struct {
                 }
                 return false;
             },
-            Wildcard.NoPathSep => {
+            Wildcard.All => {
                 if (part.str.len == 0) {
-                    // This is a special case with an empty part.str: this should only for the last part
-                    // Accept a full match if there is no path separator
-                    if (std.mem.indexOfScalar(u8, haystack, '/')) |_| {
-                        // We found a path separator: this is not a match until the end
-                        return false;
-                    } else {
-                        // If this is not the last part, something unexpected happened: Glob.new() should not produce something like that
-                        return parts.len == 1;
-                    }
+                    // This is a special case with an empty part.str: this should only be used for the last part
+                    std.debug.assert(parts.len == 1);
+
+                    // Accept a full match until the end if this is the last part.
+                    // If this is not the last part, something unexpected happened: Glob.new() should not produce something like that
+                    return parts.len == 1;
                 } else {
                     var start: usize = 0;
                     while (start < haystack.len) {
                         if (std.mem.indexOf(u8, haystack[start..], part.str)) |ix| {
-                            if (std.mem.indexOfScalar(u8, haystack[start .. start + ix], '/')) |_|
-                                // We found a path separator: this is not a match
-                                return false;
                             if (_match(parts[1..], haystack[start + ix + part.str.len ..]))
                                 // We found a match for the other parts
                                 return true;
@@ -200,4 +233,44 @@ test "with path separator" {
     try ut.expect(glob.match("a/b/c.wav"));
 
     try ut.expect(!glob.match("a/b/c.wa"));
+}
+
+test "with front some" {
+    var glob = try Glob.new(.{ .pattern = "*abc", .front = "*" }, ut.allocator);
+    defer glob.deinit();
+
+    try ut.expect(glob.match("abc"));
+    try ut.expect(glob.match("xabc"));
+
+    try ut.expect(!glob.match("/abc"));
+    try ut.expect(!glob.match("abcx"));
+}
+
+test "with front any" {
+    var glob = try Glob.new(.{ .pattern = "*abc", .front = "**" }, ut.allocator);
+    defer glob.deinit();
+
+    try ut.expect(glob.match("abc"));
+    try ut.expect(glob.match("/abc"));
+    try ut.expect(glob.match("//abc"));
+
+    try ut.expect(!glob.match("abcx"));
+}
+
+test "with back some" {
+    var glob = try Glob.new(.{ .pattern = "abc*", .back = "*" }, ut.allocator);
+    defer glob.deinit();
+
+    try ut.expect(glob.match("abc"));
+    try ut.expect(glob.match("abcx"));
+    try ut.expect(!glob.match("abc/"));
+}
+
+test "with back any" {
+    var glob = try Glob.new(.{ .pattern = "abc*", .back = "**" }, ut.allocator);
+    defer glob.deinit();
+
+    try ut.expect(glob.match("abc"));
+    try ut.expect(glob.match("abc/"));
+    try ut.expect(glob.match("abc//"));
 }
