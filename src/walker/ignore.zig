@@ -10,18 +10,19 @@ const Ignore = struct {
 
     ma: std.mem.Allocator,
     globs: Globs,
+    antiglobs: Globs,
 
     pub fn new(ma: std.mem.Allocator) Ignore {
-        return Ignore{ .ma = ma, .globs = Globs.init(ma) };
+        return Ignore{ .ma = ma, .globs = Globs.init(ma), .antiglobs = Globs.init(ma) };
     }
 
     pub fn deinit(self: *Self) void {
-        for (self.globs.items) |*item|
-            item.deinit();
-        self.globs.deinit();
+        for ([_]*Globs{ &self.globs, &self.antiglobs }) |globs| {
+            for (globs.items) |*item|
+                item.deinit();
+            globs.deinit();
+        }
     }
-
-    const Error = error{NotImplemented};
 
     pub fn loadFromFile(dir: std.fs.Dir, name: []const u8, ma: std.mem.Allocator) !Self {
         const file = try dir.openFile(name, .{});
@@ -38,8 +39,8 @@ const Ignore = struct {
     }
 
     pub fn loadFromContent(content: []const u8, ma: std.mem.Allocator) !Self {
-        var ret = Self.new(ma);
-        errdefer ret.deinit();
+        var self = Self.new(ma);
+        errdefer self.deinit();
 
         var strange_content = Strange.new(content);
         while (strange_content.popLine()) |line| {
@@ -56,36 +57,64 @@ const Ignore = struct {
             if (strange_line.empty())
                 continue;
 
-            var config = glob.Config{ .pattern = strange_line.str() };
-            if (strange_line.back() == '/') {
-                config.back = "**";
-            }
+            const is_anti = strange_line.popMany('!') > 0;
+            const globs = if (is_anti) &self.antiglobs else &self.globs;
 
-            try ret.globs.append(try glob.Glob.new(config, ma));
+            // '*.txt'    ignores '**/*.txt'
+            // 'dir/'     ignores '**/dir/**'
+            // '/dir/'    ignores 'dir/**'
+            // 'test.txt' ignores '**/test.txt'
+            var config = glob.Config{};
+            if (strange_line.popMany('/') == 0)
+                config.front = "**";
+            config.pattern = strange_line.str();
+            if (strange_line.back() == '/')
+                config.back = "**";
+
+            try globs.append(try glob.Glob.new(config, ma));
         }
 
-        return ret;
+        return self;
     }
 
     pub fn match(self: Self, fp: []const u8) bool {
+        var ret = false;
         for (self.globs.items) |item| {
             if (item.match(fp))
-                return true;
+                ret = true;
         }
-        return false;
+        for (self.antiglobs.items) |item| {
+            if (item.match(fp))
+                ret = false;
+        }
+        return ret;
     }
 };
 
 test "loadFromContent" {
-    const content = " dir/ \n file\n #comment\n\n *.ext  ";
+    // '*.txt'    ignores '**/*.txt'
+    // 'dir/'     ignores '**/dir/**'
+    // '/dir/'    ignores 'dir/**'
+    // 'test.txt' ignores '**/test.txt'
+    const content = " dir/ \n/dar/\n file\n #comment\n!ok.ext\n\n *.ext  ";
 
     var ignore = try Ignore.loadFromContent(content, ut.allocator);
     defer ignore.deinit();
 
     try ut.expect(ignore.match("dir/"));
     try ut.expect(ignore.match("dir/abc"));
+    try ut.expect(ignore.match("base/dir/abc"));
+
+    try ut.expect(ignore.match("dar/"));
+    try ut.expect(!ignore.match("base/dar/"));
+
     try ut.expect(ignore.match("file"));
-    try ut.expect(ignore.match("test.ext"));
+    try ut.expect(ignore.match("base/file"));
 
     try ut.expect(!ignore.match("#comment"));
+
+    try ut.expect(ignore.match("test.ext"));
+    try ut.expect(ignore.match("base/test.ext"));
+    try ut.expect(!ignore.match("ok.ext"));
+    try ut.expect(!ignore.match("base/ok.ext"));
 }
