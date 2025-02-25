@@ -1,10 +1,10 @@
 const std = @import("std");
 const ut = std.testing;
 
-const walker = @import("walker.zig");
-const ignore = @import("walker/ignore.zig");
-const strange = @import("strange.zig");
-const glob = @import("glob.zig");
+pub const walker = @import("walker.zig");
+pub const ignore = @import("walker/ignore.zig");
+pub const strange = @import("strange.zig");
+pub const glob = @import("glob.zig");
 
 test {
     ut.refAllDecls(@This());
