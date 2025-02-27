@@ -78,7 +78,7 @@ pub const Glob = struct {
     ma: std.mem.Allocator,
     parts: Parts,
 
-    pub fn new(config: Config, ma: std.mem.Allocator) !Glob {
+    pub fn init(config: Config, ma: std.mem.Allocator) !Glob {
         if (config.pattern.len == 0)
             return Error.EmptyPattern;
 
@@ -184,7 +184,7 @@ pub const Glob = struct {
                     std.debug.assert(parts.len == 1);
 
                     // Accept a full match until the end if this is the last part.
-                    // If this is not the last part, something unexpected happened: Glob.new() should not produce something like that
+                    // If this is not the last part, something unexpected happened: Glob.init() should not produce something like that
                     return parts.len == 1;
                 } else {
                     var start: usize = 0;
@@ -206,7 +206,7 @@ pub const Glob = struct {
 };
 
 test "glob" {
-    var glob = try Glob.new(.{ .pattern = "*ab*c*" }, ut.allocator);
+    var glob = try Glob.init(.{ .pattern = "*ab*c*" }, ut.allocator);
     defer glob.deinit();
 
     try ut.expect(glob.match("abc"));
@@ -217,7 +217,7 @@ test "glob" {
 }
 
 test "without path separator" {
-    var glob = try Glob.new(.{ .pattern = "*.wav" }, ut.allocator);
+    var glob = try Glob.init(.{ .pattern = "*.wav" }, ut.allocator);
     defer glob.deinit();
 
     try ut.expect(glob.match("abc.wav"));
@@ -227,7 +227,7 @@ test "without path separator" {
 }
 
 test "with path separator" {
-    var glob = try Glob.new(.{ .pattern = "**.wav" }, ut.allocator);
+    var glob = try Glob.init(.{ .pattern = "**.wav" }, ut.allocator);
     defer glob.deinit();
 
     try ut.expect(glob.match("abc.wav"));
@@ -238,7 +238,7 @@ test "with path separator" {
 }
 
 test "with front some" {
-    var glob = try Glob.new(.{ .pattern = "*abc", .front = "*" }, ut.allocator);
+    var glob = try Glob.init(.{ .pattern = "*abc", .front = "*" }, ut.allocator);
     defer glob.deinit();
 
     try ut.expect(glob.match("abc"));
@@ -249,7 +249,7 @@ test "with front some" {
 }
 
 test "with front any" {
-    var glob = try Glob.new(.{ .pattern = "*abc", .front = "**" }, ut.allocator);
+    var glob = try Glob.init(.{ .pattern = "*abc", .front = "**" }, ut.allocator);
     defer glob.deinit();
 
     try ut.expect(glob.match("abc"));
@@ -260,7 +260,7 @@ test "with front any" {
 }
 
 test "with back some" {
-    var glob = try Glob.new(.{ .pattern = "abc*", .back = "*" }, ut.allocator);
+    var glob = try Glob.init(.{ .pattern = "abc*", .back = "*" }, ut.allocator);
     defer glob.deinit();
 
     try ut.expect(glob.match("abc"));
@@ -269,7 +269,7 @@ test "with back some" {
 }
 
 test "with back any" {
-    var glob = try Glob.new(.{ .pattern = "abc*", .back = "**" }, ut.allocator);
+    var glob = try Glob.init(.{ .pattern = "abc*", .back = "**" }, ut.allocator);
     defer glob.deinit();
 
     try ut.expect(glob.match("abc"));

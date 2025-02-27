@@ -4,16 +4,15 @@ const ut = std.testing;
 const Strange = @import("../strange.zig").Strange;
 const glob = @import("../glob.zig");
 
-const Ignore = struct {
+pub const Ignore = struct {
     const Self = @This();
     const Globs = std.ArrayList(glob.Glob);
 
-    ma: std.mem.Allocator,
     globs: Globs,
     antiglobs: Globs,
 
-    pub fn new(ma: std.mem.Allocator) Ignore {
-        return Ignore{ .ma = ma, .globs = Globs.init(ma), .antiglobs = Globs.init(ma) };
+    pub fn init(ma: std.mem.Allocator) Ignore {
+        return Ignore{ .globs = Globs.init(ma), .antiglobs = Globs.init(ma) };
     }
 
     pub fn deinit(self: *Self) void {
@@ -39,7 +38,7 @@ const Ignore = struct {
     }
 
     pub fn loadFromContent(content: []const u8, ma: std.mem.Allocator) !Self {
-        var self = Self.new(ma);
+        var self = Self.init(ma);
         errdefer self.deinit();
 
         var strange_content = Strange.new(content);
@@ -71,7 +70,7 @@ const Ignore = struct {
             if (strange_line.back() == '/')
                 config.back = "**";
 
-            try globs.append(try glob.Glob.new(config, ma));
+            try globs.append(try glob.Glob.init(config, ma));
         }
 
         return self;
