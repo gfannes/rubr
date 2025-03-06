@@ -7,12 +7,16 @@ const glob = @import("../glob.zig");
 pub const Ignore = struct {
     const Self = @This();
     const Globs = std.ArrayList(glob.Glob);
+    const Strings = std.ArrayList([]const u8);
 
     globs: Globs,
     antiglobs: Globs,
 
+    _strings: Strings,
+    ma: std.mem.Allocator,
+
     pub fn init(ma: std.mem.Allocator) Ignore {
-        return Ignore{ .globs = Globs.init(ma), .antiglobs = Globs.init(ma) };
+        return Ignore{ .globs = Globs.init(ma), .antiglobs = Globs.init(ma), ._strings = Strings.init(ma), .ma = ma };
     }
 
     pub fn deinit(self: *Self) void {
@@ -21,6 +25,10 @@ pub const Ignore = struct {
                 item.deinit();
             globs.deinit();
         }
+        for (self._strings.items) |str| {
+            self.ma.free(str);
+        }
+        self._strings.deinit();
     }
 
     pub fn loadFromFile(dir: std.fs.Dir, name: []const u8, ma: std.mem.Allocator) !Self {
@@ -74,6 +82,12 @@ pub const Ignore = struct {
         }
 
         return self;
+    }
+
+    pub fn addExt(self: *Ignore, ext: []const u8) !void {
+        const my_ext = try std.mem.concat(self.ma, u8, &[_][]const u8{ ".", ext });
+        try self._strings.append(my_ext);
+        try self.globs.append(try glob.Glob.init(glob.Config{ .pattern = my_ext, .front = "**" }, self.ma));
     }
 
     pub fn match(self: Self, fp: []const u8) bool {
