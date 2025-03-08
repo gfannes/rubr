@@ -54,7 +54,7 @@ namespace rubr { namespace mss {
     template<typename Dst, typename Src>
     void aggregate(Dst &dst, Src src)
     {
-        if (!is_ok(src))
+        if (!is_ok(src)) [[unlikely]]
             dst = detail::Traits<Dst>::Error();
     }
     template<typename T>
@@ -95,7 +95,7 @@ namespace rubr { namespace mss {
 #define MSS_1(expr)                                                                       \
     do {                                                                                  \
         rubr::mss::aggregate(MSS_RC, (expr));                                             \
-        if (!rubr::mss::is_ok(MSS_RC))                                                    \
+        if (!rubr::mss::is_ok(MSS_RC)) [[unlikely]]                                       \
         {                                                                                 \
             S("MSS");                                                                     \
             L("Error: " #expr << " failed in \"" << __FILE__ << ":" << __LINE__ << "\""); \
@@ -105,7 +105,7 @@ namespace rubr { namespace mss {
 #define MSS_2(expr, action)                                                               \
     do {                                                                                  \
         rubr::mss::aggregate(MSS_RC, (expr));                                             \
-        if (!rubr::mss::is_ok(MSS_RC))                                                    \
+        if (!rubr::mss::is_ok(MSS_RC)) [[unlikely]]                                       \
         {                                                                                 \
             S("MSS");                                                                     \
             L("Error: " #expr << " failed in \"" << __FILE__ << ":" << __LINE__ << "\""); \
@@ -116,7 +116,7 @@ namespace rubr { namespace mss {
 #define MSS_3(expr, action, aggregator)                                                   \
     do {                                                                                  \
         aggregator(MSS_RC, (expr));                                                       \
-        if (!rubr::mss::is_ok(MSS_RC))                                                    \
+        if (!rubr::mss::is_ok(MSS_RC)) [[unlikely]]                                       \
         {                                                                                 \
             S("MSS");                                                                     \
             L("Error: " #expr << " failed in \"" << __FILE__ << ":" << __LINE__ << "\""); \
@@ -130,31 +130,31 @@ namespace rubr { namespace mss {
 #if defined(MSS_Q) || defined(MSS_Q_1) || defined(MSS_Q_2) || defined(MSS_Q_3)
     #error MSS_Q macros already defined
 #endif
-#define MSS_Q_1(expr)                         \
-    do {                                      \
-        rubr::mss::aggregate(MSS_RC, (expr)); \
-        if (!rubr::mss::is_ok(MSS_RC))        \
-        {                                     \
-            return MSS_RC;                    \
-        }                                     \
+#define MSS_Q_1(expr)                               \
+    do {                                            \
+        rubr::mss::aggregate(MSS_RC, (expr));       \
+        if (!rubr::mss::is_ok(MSS_RC)) [[unlikely]] \
+        {                                           \
+            return MSS_RC;                          \
+        }                                           \
     } while (false)
-#define MSS_Q_2(expr, action)                 \
-    do {                                      \
-        rubr::mss::aggregate(MSS_RC, (expr)); \
-        if (!rubr::mss::is_ok(MSS_RC))        \
-        {                                     \
-            action;                           \
-            return MSS_RC;                    \
-        }                                     \
+#define MSS_Q_2(expr, action)                       \
+    do {                                            \
+        rubr::mss::aggregate(MSS_RC, (expr));       \
+        if (!rubr::mss::is_ok(MSS_RC)) [[unlikely]] \
+        {                                           \
+            action;                                 \
+            return MSS_RC;                          \
+        }                                           \
     } while (false)
-#define MSS_Q_3(expr, action, aggregator) \
-    do {                                  \
-        aggregator(MSS_RC, (expr));       \
-        if (!rubr::mss::is_ok(MSS_RC))    \
-        {                                 \
-            action;                       \
-            return MSS_RC;                \
-        }                                 \
+#define MSS_Q_3(expr, action, aggregator)           \
+    do {                                            \
+        aggregator(MSS_RC, (expr));                 \
+        if (!rubr::mss::is_ok(MSS_RC)) [[unlikely]] \
+        {                                           \
+            action;                                 \
+            return MSS_RC;                          \
+        }                                           \
     } while (false)
 #define MSS_Q(...) RUBR_GET_ARG_4((__VA_ARGS__, MSS_Q_3, MSS_Q_2, MSS_Q_1))(__VA_ARGS__)
 
