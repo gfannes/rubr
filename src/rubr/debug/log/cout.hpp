@@ -27,7 +27,11 @@ namespace rubr { namespace debug {
         {
             if (do_log())
             {
-                stream() << ">> " << debug_ns_ << " => " << function_name() << std::endl;
+                auto &os = stream();
+                os << '[' << function_name();
+                if (debug_ns_[0])
+                    os << ':' << debug_ns_;
+                os << ']' << '{' << std::endl;
                 ++details::Level<Scope>::value;
             }
         }
@@ -36,7 +40,7 @@ namespace rubr { namespace debug {
             if (do_log())
             {
                 --details::Level<Scope>::value;
-                stream() << "<< " << debug_ns_ << " => " << function_name() << std::endl;
+                stream() << '}' << std::endl;
             }
         }
 
@@ -64,7 +68,7 @@ namespace rubr { namespace debug {
     #define L(msg)                                                        \
         do {                                                              \
             if (l_rubr_debug_Scope.do_log())                              \
-                l_rubr_debug_Scope.stream() << "   " << msg << std::endl; \
+                l_rubr_debug_Scope.stream() << msg << std::endl; \
         } while (false)
 #else
     #define S(debug_ns)
