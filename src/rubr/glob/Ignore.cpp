@@ -31,16 +31,16 @@ namespace rubr::glob {
 
             if (line.pop_if('#'))
                 continue;
+
+            auto &dst = line.pop_if('!') ? includes_ : ignores_;
+
             if (line.empty())
                 continue;
 
-            auto &dst = line.pop_if('!') ? includes_ : ignores_;
-            L(C(&dst));
-
             rubr::glob::Glob::Config config;
-            config.front = rubr::glob::Wildcard::All;
+            config.front = line.pop_if('/') ? rubr::glob::Wildcard::Nothing : rubr::glob::Wildcard::All;
             config.pattern = line.str();
-            config.back = line.empty() || line.back() != '/' ? rubr::glob::Wildcard::Nothing : rubr::glob::Wildcard::All;
+            config.back = line.back() == '/' ? rubr::glob::Wildcard::All : rubr::glob::Wildcard::Nothing;
 
             dst.emplace_back(config);
         }

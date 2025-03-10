@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <vector>
 
+// &todo: When a subfolder contains a '.git' file/folder, an empty Ignore should be added (if no real '.gitignore' is present)
+
 namespace rubr::fs {
 
     class Walker
