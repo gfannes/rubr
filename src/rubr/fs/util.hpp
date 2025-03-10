@@ -50,7 +50,7 @@ namespace rubr::fs {
         S(nullptr);
 
         auto ix = path.rfind('/');
-        L(C(path)C(ix));
+        L(C(path) C(ix));
 
         if (ix != std::string_view::npos)
         {
@@ -93,6 +93,21 @@ namespace rubr::fs {
         fi.read(&content[0], size);
 
         MSS_END();
+    }
+
+    inline std::filesystem::path expand_path(const std::string_view &sv)
+    {
+        if (sv == "~")
+        {
+            if (const auto home = std::getenv("HOME"); !!home)
+                return std::filesystem::path(home);
+        }
+        else if (sv.starts_with("~/"))
+        {
+            if (const auto home = std::getenv("HOME"); !!home)
+                return std::filesystem::path(home) / sv.substr(2);
+        }
+        return sv;
     }
 
 } // namespace rubr::fs

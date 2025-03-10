@@ -30,3 +30,12 @@ TEST_CASE("func", "[ut][fs][read]")
     REQUIRE(fs::read(content, "../../../../test/rubr/fs/util_tests.cpp"));
     REQUIRE(content.contains("rubr/fs/util.hpp"));
 }
+
+TEST_CASE("func", "[ut][fs][expand_path]")
+{
+    const auto home_cstr = std::getenv("HOME");
+    const std::filesystem::path home = home_cstr ? home_cstr : "~";
+
+    REQUIRE(fs::expand_path("~") == home);
+    REQUIRE(fs::expand_path("~/abc") == home / "abc");
+}
