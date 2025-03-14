@@ -26,7 +26,7 @@ pub const Walker = struct {
 
     // We keep track of the current path as a []const u8. If the caller has to do this,
     // he has to use Dir.realpath() which is less efficient.
-    _buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined,
+    _buffer: [std.fs.max_path_bytes]u8 = undefined,
     _path: []const u8 = &.{},
 
     _offsets: Offsets = undefined,
@@ -121,9 +121,10 @@ pub const Walker = struct {
         }
 
         if (added_ignore) {
-            var v = self._ignore_stack.pop();
-            v.buffer.deinit();
-            v.ignore.deinit();
+            if (self._ignore_stack.pop()) |v| {
+                v.buffer.deinit();
+                v.ignore.deinit();
+            }
 
             self._ignore_offset = if (slice.last(self._ignore_stack.items)) |x| x.path_len + 1 else 0;
         }
