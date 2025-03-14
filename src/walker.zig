@@ -123,7 +123,8 @@ pub const Walker = struct {
         if (added_ignore) {
             if (self._ignore_stack.pop()) |v| {
                 v.buffer.deinit();
-                v.ignore.deinit();
+                var v_mut = v;
+                v_mut.ignore.deinit();
             }
 
             self._ignore_offset = if (slice.last(self._ignore_stack.items)) |x| x.path_len + 1 else 0;
