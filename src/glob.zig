@@ -86,7 +86,10 @@ pub const Glob = struct {
         my_config.front = try ma.dupe(u8, config.front);
         my_config.back = try ma.dupe(u8, config.back);
 
-        return initUnmanaged(my_config.*, ma);
+        var ret = try initUnmanaged(my_config.*, ma);
+        ret.config = my_config;
+
+        return ret;
     }
 
     // Assumes config outlives self
