@@ -143,8 +143,8 @@ pub const Walker = struct {
 pub const Filter = struct {
     // Skip hidden files by default
     hidden: bool = true,
-    // Skip files with following extensions
-    // First const is necessary to support assignment from `&[][]const u8{".o", ".exe"}`.
+
+    // Skip files with following extensions. Include '.' in extension.
     extensions: []const []const u8 = &.{},
 
     fn call(self: Filter, _: std.fs.Dir, entry: std.fs.Dir.Entry) bool {

@@ -77,8 +77,20 @@ pub const Glob = struct {
 
     ma: std.mem.Allocator,
     parts: Parts,
+    config: ?*Config = null,
 
     pub fn init(config: Config, ma: std.mem.Allocator) !Glob {
+        // Create our own copy of config to unsure it outlives self
+        const my_config = try ma.create(Config);
+        my_config.pattern = try ma.dupe(u8, config.pattern);
+        my_config.front = try ma.dupe(u8, config.front);
+        my_config.back = try ma.dupe(u8, config.back);
+
+        return initUnmanaged(my_config.*, ma);
+    }
+
+    // Assumes config outlives self
+    pub fn initUnmanaged(config: Config, ma: std.mem.Allocator) !Glob {
         if (config.pattern.len == 0)
             return Error.EmptyPattern;
 
@@ -126,6 +138,12 @@ pub const Glob = struct {
 
     pub fn deinit(self: *Self) void {
         self.parts.deinit();
+        if (self.config) |el| {
+            self.ma.free(el.pattern);
+            self.ma.free(el.front);
+            self.ma.free(el.back);
+            self.ma.destroy(el);
+        }
     }
 
     pub fn match(self: Self, haystack: []const u8) bool {
