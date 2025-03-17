@@ -10,7 +10,7 @@ const ut = std.testing;
 pub const Strange = struct {
     content: []const u8,
 
-    pub fn make(content: []const u8) Strange {
+    pub fn init(content: []const u8) Strange {
         return Strange{ .content = content };
     }
 
@@ -93,13 +93,13 @@ pub const Strange = struct {
 };
 
 test "Strange.empty Strange.size" {
-    const strange = Strange.make("abc");
+    const strange = Strange.init("abc");
     try ut.expectEqual(false, strange.empty());
     try ut.expectEqual(3, strange.size());
 }
 
 test "Strange.popLine" {
-    var strange = Strange.make("abc\ndef\r\nghi");
+    var strange = Strange.init("abc\ndef\r\nghi");
     if (strange.popLine()) |line| {
         try ut.expectEqualSlices(u8, "abc", line);
     } else unreachable;
@@ -114,7 +114,7 @@ test "Strange.popLine" {
 }
 
 test "Strange.popTo Strange.popAll" {
-    var strange = Strange.make("abc");
+    var strange = Strange.init("abc");
     if (strange.popTo('b')) |part| {
         try ut.expectEqualSlices(u8, "a", part);
         try ut.expectEqualSlices(u8, "c", strange.str());
@@ -122,7 +122,7 @@ test "Strange.popTo Strange.popAll" {
 }
 
 test "Strange.popMany" {
-    var strange = Strange.make("abbc");
+    var strange = Strange.init("abbc");
     try ut.expectEqual(0, strange.popMany('z'));
     try ut.expectEqual(1, strange.popMany('a'));
     try ut.expectEqual(0, strange.popMany('a'));
@@ -133,7 +133,7 @@ test "Strange.popMany" {
 }
 
 test "Strange.popManyBack" {
-    var strange = Strange.make("abbc");
+    var strange = Strange.init("abbc");
     try ut.expectEqual(0, strange.popManyBack('z'));
     try ut.expectEqual(1, strange.popManyBack('c'));
     try ut.expectEqual(0, strange.popManyBack('c'));
@@ -144,7 +144,7 @@ test "Strange.popManyBack" {
 }
 
 test "Strange.front Strange.back" {
-    var strange = Strange.make("abc");
+    var strange = Strange.init("abc");
     try ut.expectEqual(@as(?u8, 'a'), strange.front());
     try ut.expectEqual(@as(?u8, 'c'), strange.back());
     _ = strange.popAll();

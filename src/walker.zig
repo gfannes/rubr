@@ -34,7 +34,7 @@ pub const Walker = struct {
 
     _ignore_stack: IgnoreStack = undefined,
 
-    pub fn make(ma: std.mem.Allocator) !Walker {
+    pub fn init(ma: std.mem.Allocator) !Walker {
         return Walker{ ._ma = ma, ._ignore_stack = IgnoreStack.init(ma) };
     }
 
@@ -69,7 +69,7 @@ pub const Walker = struct {
             if (stat.size != try file.readAll(ig.buffer.items))
                 return Error.CouldNotReadIgnore;
 
-            ig.ignore = try ignore.Ignore.makeFromContent(ig.buffer.items, self._ma);
+            ig.ignore = try ignore.Ignore.initFromContent(ig.buffer.items, self._ma);
             ig.path_len = self._path.len;
             try self._ignore_stack.append(ig);
 
@@ -166,7 +166,7 @@ fn is_hidden(name: []const u8) bool {
 }
 
 test "walk" {
-    var walker = try Walker.make(ut.allocator);
+    var walker = try Walker.init(ut.allocator);
     defer walker.deinit();
     walker.filter = .{ .extensions = &[_][]const u8{ ".o", ".exe" } };
 
