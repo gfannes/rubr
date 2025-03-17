@@ -15,7 +15,7 @@ pub const Ignore = struct {
     _strings: Strings,
     ma: std.mem.Allocator,
 
-    pub fn init(ma: std.mem.Allocator) Ignore {
+    pub fn make(ma: std.mem.Allocator) Ignore {
         return Ignore{ .globs = Globs.init(ma), .antiglobs = Globs.init(ma), ._strings = Strings.init(ma), .ma = ma };
     }
 
@@ -31,7 +31,7 @@ pub const Ignore = struct {
         self._strings.deinit();
     }
 
-    pub fn loadFromFile(dir: std.fs.Dir, name: []const u8, ma: std.mem.Allocator) !Self {
+    pub fn makeFromFile(dir: std.fs.Dir, name: []const u8, ma: std.mem.Allocator) !Self {
         const file = try dir.openFile(name, .{});
         defer file.close();
 
@@ -42,16 +42,16 @@ pub const Ignore = struct {
         const content = try r.readAllAlloc(ma, stat.size);
         defer ma.free(content);
 
-        return loadFromContent(content, ma);
+        return makeFromContent(content, ma);
     }
 
-    pub fn loadFromContent(content: []const u8, ma: std.mem.Allocator) !Self {
-        var self = Self.init(ma);
+    pub fn makeFromContent(content: []const u8, ma: std.mem.Allocator) !Self {
+        var self = Self.make(ma);
         errdefer self.deinit();
 
-        var strange_content = Strange.new(content);
+        var strange_content = Strange.make(content);
         while (strange_content.popLine()) |line| {
-            var strange_line = Strange.new(line);
+            var strange_line = Strange.make(line);
 
             // Trim
             _ = strange_line.popMany(' ');
@@ -78,7 +78,7 @@ pub const Ignore = struct {
             if (strange_line.back() == '/')
                 config.back = "**";
 
-            try globs.append(try glob.Glob.init(config, ma));
+            try globs.append(try glob.Glob.make(config, ma));
         }
 
         return self;
@@ -87,7 +87,7 @@ pub const Ignore = struct {
     pub fn addExt(self: *Ignore, ext: []const u8) !void {
         const my_ext = try std.mem.concat(self.ma, u8, &[_][]const u8{ ".", ext });
         try self._strings.append(my_ext);
-        try self.globs.append(try glob.Glob.init(glob.Config{ .pattern = my_ext, .front = "**" }, self.ma));
+        try self.globs.append(try glob.Glob.make(glob.Config{ .pattern = my_ext, .front = "**" }, self.ma));
     }
 
     pub fn match(self: Self, fp: []const u8) bool {
@@ -104,14 +104,14 @@ pub const Ignore = struct {
     }
 };
 
-test "loadFromContent" {
+test "makeFromContent" {
     // '*.txt'    ignores '**/*.txt'
     // 'dir/'     ignores '**/dir/**'
     // '/dir/'    ignores 'dir/**'
     // 'test.txt' ignores '**/test.txt'
     const content = " dir/ \n/dar/\n file\n #comment\n!ok.ext\n\n *.ext  ";
 
-    var ignore = try Ignore.loadFromContent(content, ut.allocator);
+    var ignore = try Ignore.makeFromContent(content, ut.allocator);
     defer ignore.deinit();
 
     try ut.expect(ignore.match("dir/"));
