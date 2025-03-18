@@ -7,6 +7,7 @@ pub const strange = @import("strange.zig");
 pub const strings = @import("strings.zig");
 pub const glob = @import("glob.zig");
 pub const slice = @import("slice.zig");
+pub const profile = @import("profile.zig");
 
 test {
     ut.refAllDecls(@This());
@@ -16,4 +17,5 @@ test {
     ut.refAllDecls(strings);
     ut.refAllDecls(glob);
     ut.refAllDecls(slice);
+    ut.refAllDecls(profile);
 }
