@@ -45,10 +45,8 @@ pub const Node = struct {
             return;
         }
 
-        // std.debug.print("\ntype {s} {any}\n", .{ @typeName(@TypeOf(value)), @typeInfo(@TypeOf(value)) });
-
         const str = switch (@typeInfo(@TypeOf(value))) {
-            // A bit crude, but "str" and '[]const u8' are .pointer
+            // We assume that any .pointer can be printed as a string
             .pointer => "s",
             else => "any",
         };
@@ -62,7 +60,7 @@ pub const Node = struct {
         }
 
         const str = switch (@typeInfo(@TypeOf(value))) {
-            // A bit crude, but "str" and '[]const u8' are .pointer
+            // We assume that any .pointer can be printed as a string
             .pointer => "s",
             else => "any",
         };
