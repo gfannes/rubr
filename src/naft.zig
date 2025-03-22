@@ -9,10 +9,13 @@ pub const Node = struct {
 
     out: ?std.fs.File.Writer,
     level: usize,
+    // Indicates if this Node already contains nested elements (Text, Node). This is used to add a closing '}' upon deinit().
     has_block: bool = false,
+    // Indicates if this Node already contains a Node. This is used for deciding newlines etc.
+    has_node: bool = false,
 
     pub fn init(out: ?std.fs.File.Writer) Node {
-        return Node{ .out = out, .level = 0, .has_block = true };
+        return Node{ .out = out, .level = 0, .has_block = true, .has_node = true };
     }
     pub fn deinit(self: Self) void {
         if (self.level == 0)
@@ -20,7 +23,8 @@ pub const Node = struct {
             return;
 
         if (self.has_block) {
-            self.indent();
+            if (self.has_node)
+                self.indent();
             self.print("}}\n", .{});
         } else {
             self.print("\n", .{});
@@ -28,7 +32,7 @@ pub const Node = struct {
     }
 
     pub fn node(self: *Self, name: []const u8) Node {
-        self.ensure_block();
+        self.ensure_block(true);
         const n = Node{ .out = self.out, .level = self.level + 1 };
         n.indent();
         n.print("[{s}]", .{name});
@@ -51,11 +55,35 @@ pub const Node = struct {
 
         self.print("({s}:{" ++ str ++ "})", .{ key, value });
     }
+    pub fn attr1(self: *Self, value: anytype) void {
+        if (self.has_block) {
+            std.debug.print("Attributes are not allowed anymore: block was already started\n", .{});
+            return;
+        }
 
-    fn ensure_block(self: *Self) void {
+        const str = switch (@typeInfo(@TypeOf(value))) {
+            // A bit crude, but "str" and '[]const u8' are .pointer
+            .pointer => "s",
+            else => "any",
+        };
+
+        self.print("({" ++ str ++ "})", .{value});
+    }
+
+    pub fn text(self: *Self, str: []const u8) void {
+        self.ensure_block(false);
+        self.print("{s}", .{str});
+    }
+
+    fn ensure_block(self: *Self, is_node: bool) void {
         if (!self.has_block)
-            self.print("{{\n", .{});
+            self.print("{{", .{});
         self.has_block = true;
+        if (is_node) {
+            if (!self.has_node)
+                self.print("\n", .{});
+            self.has_node = is_node;
+        }
     }
 
     fn indent(self: Self) void {
