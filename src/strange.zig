@@ -86,6 +86,26 @@ pub const Strange = struct {
         return line;
     }
 
+    pub fn popInt(self: *Strange, T: type) ?T {
+        // Find number of chars comprising number
+        var slice = self.content;
+        for (self.content, 0..) |ch, ix| {
+            switch (ch) {
+                '0'...'9', '-', '+' => {},
+                else => {
+                    slice.len = ix;
+                    break;
+                },
+            }
+        }
+        std.debug.print("slice: ({s})\n", .{slice});
+        if (std.fmt.parseInt(T, slice, 10) catch null) |v| {
+            self._popFront(slice.len);
+            return v;
+        }
+        return null;
+    }
+
     fn _popFront(self: *Strange, count: usize) void {
         self.content.ptr += count;
         self.content.len -= count;
@@ -111,6 +131,15 @@ test "Strange.popLine" {
     } else unreachable;
     if (strange.popLine()) |_| unreachable;
     try ut.expectEqual(true, strange.empty());
+}
+
+test "Strange.popInt" {
+    const scns = [_]struct { []const u8, ?i32 }{ .{ "42", 42 }, .{ "-42", -42 }, .{ "+42", 42 }, .{ "not a number", null }, .{ "42 ", 42 } };
+    for (scns) |scn| {
+        const str, const exp = scn;
+        var strange = Strange.init(str);
+        try ut.expectEqual(exp, strange.popInt(i32));
+    }
 }
 
 test "Strange.popTo Strange.popAll" {
