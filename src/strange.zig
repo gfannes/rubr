@@ -71,6 +71,14 @@ pub const Strange = struct {
         }
     }
 
+    pub fn popStr(self: *Strange, s: []const u8) bool {
+        if (std.mem.startsWith(u8, self.content, s)) {
+            self._popFront(s.len);
+            return true;
+        }
+        return false;
+    }
+
     pub fn popLine(self: *Strange) ?[]const u8 {
         if (self.empty())
             return null;
@@ -131,6 +139,14 @@ test "Strange.popLine" {
     } else unreachable;
     if (strange.popLine()) |_| unreachable;
     try ut.expectEqual(true, strange.empty());
+}
+
+test "Strange.popStr" {
+    var strange = Strange.init("abc");
+    try ut.expectEqual(true, strange.popStr("ab"));
+    try ut.expectEqual(false, strange.popStr("ab"));
+    try ut.expectEqual(true, strange.popStr("c"));
+    try ut.expectEqual(false, strange.popStr("c"));
 }
 
 test "Strange.popInt" {

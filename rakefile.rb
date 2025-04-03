@@ -8,8 +8,8 @@ end
 
 desc 'Run all UTs'
 task :ut, %i[filter] do |task, args|
-    # FileUtils.rm_rf('.zig-cache')
-    sh "zig build test"
+    filter = (args[:filter]||'').split(':').map{|e|"-Dtest-filter=#{e}"}*' '
+    sh "zig build test #{filter}"
 
     mode = :release
     # mode = :debug
