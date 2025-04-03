@@ -106,7 +106,6 @@ pub const Strange = struct {
                 },
             }
         }
-        std.debug.print("slice: ({s})\n", .{slice});
         if (std.fmt.parseInt(T, slice, 10) catch null) |v| {
             self._popFront(slice.len);
             return v;
