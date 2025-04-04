@@ -10,6 +10,7 @@ pub const slice = @import("slice.zig");
 pub const profile = @import("profile.zig");
 pub const naft = @import("naft.zig");
 pub const cli = @import("cli.zig");
+pub const log = @import("log.zig");
 
 test {
     ut.refAllDecls(@This());
@@ -22,4 +23,5 @@ test {
     ut.refAllDecls(profile);
     ut.refAllDecls(naft);
     ut.refAllDecls(cli);
+    ut.refAllDecls(log);
 }
