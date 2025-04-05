@@ -2,7 +2,7 @@ const std = @import("std");
 
 pub const dto = @import("lsp/dto.zig");
 
-const strange = @import("rubr").strange;
+const strange = @import("strange.zig");
 
 pub const Error = error{
     UnexpectedKey,
