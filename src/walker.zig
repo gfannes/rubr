@@ -22,7 +22,7 @@ pub const Walker = struct {
 
     filter: Filter = .{},
 
-    _ma: std.mem.Allocator,
+    _a: std.mem.Allocator,
 
     // We keep track of the current path as a []const u8. If the caller has to do this,
     // he has to use Dir.realpath() which is less efficient.
@@ -34,8 +34,8 @@ pub const Walker = struct {
 
     _ignore_stack: IgnoreStack = undefined,
 
-    pub fn init(ma: std.mem.Allocator) !Walker {
-        return Walker{ ._ma = ma, ._ignore_stack = IgnoreStack.init(ma) };
+    pub fn init(a: std.mem.Allocator) !Walker {
+        return Walker{ ._a = a, ._ignore_stack = IgnoreStack.init(a) };
     }
 
     pub fn deinit(self: *Walker) void {
@@ -64,12 +64,12 @@ pub const Walker = struct {
 
             const stat = try file.stat();
 
-            var ig = Ignore{ .buffer = try Buffer.initCapacity(self._ma, stat.size) };
+            var ig = Ignore{ .buffer = try Buffer.initCapacity(self._a, stat.size) };
             try ig.buffer.resize(stat.size);
             if (stat.size != try file.readAll(ig.buffer.items))
                 return Error.CouldNotReadIgnore;
 
-            ig.ignore = try ignore.Ignore.initFromContent(ig.buffer.items, self._ma);
+            ig.ignore = try ignore.Ignore.initFromContent(ig.buffer.items, self._a);
             ig.path_len = self._path.len;
             try self._ignore_stack.append(ig);
 

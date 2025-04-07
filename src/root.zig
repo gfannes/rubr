@@ -12,6 +12,7 @@ pub const naft = @import("naft.zig");
 pub const cli = @import("cli.zig");
 pub const log = @import("log.zig");
 pub const lsp = @import("lsp.zig");
+pub const index = @import("index.zig");
 
 test {
     ut.refAllDecls(@This());
@@ -26,4 +27,5 @@ test {
     ut.refAllDecls(cli);
     ut.refAllDecls(log);
     ut.refAllDecls(lsp);
+    ut.refAllDecls(index);
 }

@@ -43,6 +43,12 @@ pub const Log = struct {
     pub fn print(self: Self, comptime fmt: []const u8, args: anytype) !void {
         try self._writer.print(fmt, args);
     }
+    pub fn warning(self: Self, comptime fmt: []const u8, args: anytype) !void {
+        try self._writer.print("Warning: " ++ fmt, args);
+    }
+    pub fn err(self: Self, comptime fmt: []const u8, args: anytype) !void {
+        try self._writer.print("Error: " ++ fmt, args);
+    }
 
     pub fn level(self: Self, lvl: usize) ?Writer {
         if (self._lvl >= lvl)
