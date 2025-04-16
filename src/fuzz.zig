@@ -1,5 +1,7 @@
 const std = @import("std");
 
+// &todo: Support null distance when a character from needle is not found
+
 pub fn distance(needle: []const u8, haystack: []const u8) f64 {
     if (needle.len == 0 or haystack.len == 0)
         return 0.0;
