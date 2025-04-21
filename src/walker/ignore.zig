@@ -42,9 +42,9 @@ pub const Ignore = struct {
         var self = Self.init(ma);
         errdefer self.deinit();
 
-        var strange_content = Strange.init(content);
+        var strange_content = Strange{ .content = content };
         while (strange_content.popLine()) |line| {
-            var strange_line = Strange.init(line);
+            var strange_line = Strange{ .content = line };
 
             // Trim
             _ = strange_line.popMany(' ');

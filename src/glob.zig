@@ -99,7 +99,7 @@ pub const Glob = struct {
 
         var glob = Glob{ .ma = ma, .parts = Parts.init(ma) };
 
-        var strange = Strange.init(config.pattern);
+        var strange = Strange{ .content = config.pattern };
 
         var wildcard = try Wildcard.fromStr(config.front);
 
