@@ -114,7 +114,7 @@ pub const Server = struct {
             if (self.log) |log|
                 try log.print("[Line](content:{s})\n", .{line});
 
-            var str = strange.Strange.init(line);
+            var str = strange.Strange{ .content = line };
 
             if (str.popStr("Content-Length:")) {
                 _ = str.popMany(' ');
