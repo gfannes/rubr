@@ -76,6 +76,13 @@ pub const Strange = struct {
         }
         return false;
     }
+    pub fn popCharBack(self: *Self, ch: u8) bool {
+        if (self.content.len > 0 and self.content[self.content.len - 1] == ch) {
+            self._popBack(1);
+            return true;
+        }
+        return false;
+    }
 
     pub fn popStr(self: *Self, s: []const u8) bool {
         if (std.mem.startsWith(u8, self.content, s)) {
@@ -123,6 +130,9 @@ pub const Strange = struct {
         self.content.ptr += count;
         self.content.len -= count;
     }
+    fn _popBack(self: *Self, count: usize) void {
+        self.content.len -= count;
+    }
 };
 
 test "Strange.empty Strange.size" {
@@ -153,6 +163,15 @@ test "Strange.popChar" {
     try ut.expectEqual(true, strange.popChar('b'));
     try ut.expectEqual(true, strange.popChar('c'));
     try ut.expectEqual(false, strange.popChar('c'));
+}
+
+test "Strange.popCharBack" {
+    var strange = Strange{ .content = "abc" };
+    try ut.expectEqual(true, strange.popCharBack('c'));
+    try ut.expectEqual(false, strange.popCharBack('c'));
+    try ut.expectEqual(true, strange.popCharBack('b'));
+    try ut.expectEqual(true, strange.popCharBack('a'));
+    try ut.expectEqual(false, strange.popCharBack('a'));
 }
 
 test "Strange.popStr" {
