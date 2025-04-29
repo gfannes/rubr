@@ -15,6 +15,12 @@ pub const Offsets = struct {
     name: usize = 0,
 };
 
+pub const Kind = enum {
+    Enter,
+    Leave,
+    File,
+};
+
 pub const Walker = struct {
     const Ignore = struct { buffer: Buffer = undefined, ignore: ignore.Ignore = undefined, path_len: usize = 0 };
     const IgnoreStack = std.ArrayList(Ignore);
@@ -28,8 +34,8 @@ pub const Walker = struct {
     // he has to use Dir.realpath() which is less efficient.
     _buffer: [std.fs.max_path_bytes]u8 = undefined,
     _path: []const u8 = &.{},
+    _base: usize = undefined,
 
-    _offsets: Offsets = undefined,
     _ignore_offset: usize = 0,
 
     _ignore_stack: IgnoreStack = undefined,
@@ -48,12 +54,16 @@ pub const Walker = struct {
 
     pub fn walk(self: *Walker, basedir: std.fs.Dir, cb: anytype) !void {
         self._path = try basedir.realpath(".", &self._buffer);
-        self._offsets = Offsets{ .base = self._path.len + 1 };
+        self._base = self._path.len + 1;
 
         var dir = try basedir.openDir(".", .{ .iterate = true });
         defer dir.close();
 
+        const path = self._path;
+
+        try cb.call(dir, path, null, Kind.Enter);
         try self._walk(dir, cb);
+        try cb.call(dir, path, null, Kind.Leave);
     }
 
     fn _walk(self: *Walker, dir: std.fs.Dir, cb: anytype) !void {
@@ -83,38 +93,39 @@ pub const Walker = struct {
             if (!self.filter.call(dir, el))
                 continue;
 
+            const orig_path_len = self._path.len;
+            defer self._path.len = orig_path_len;
+
+            const offsets = Offsets{ .base = self._base, .name = self._path.len + 1 };
+            self._append_to_path(el.name);
+
             switch (el.kind) {
                 std.fs.File.Kind.file => {
-                    const orig_path_len = self._path.len;
-                    defer self._path.len = orig_path_len;
-
-                    self._offsets.name = self._path.len + 1;
-                    self._append_to_path(el.name);
-
                     if (slice.last(self._ignore_stack.items)) |e| {
                         const ignore_path = self._path[self._ignore_offset..];
                         if (e.ignore.match(ignore_path))
                             continue;
                     }
 
-                    try cb.call(dir, self._path, self._offsets);
+                    try cb.call(dir, self._path, offsets, Kind.File);
                 },
                 std.fs.File.Kind.directory => {
+                    if (slice.last(self._ignore_stack.items)) |e| {
+                        const ignore_path = self._path[self._ignore_offset..];
+                        if (e.ignore.match(ignore_path))
+                            continue;
+                    }
+
                     var subdir = try dir.openDir(el.name, .{ .iterate = true });
                     defer subdir.close();
 
-                    const orig_path_len = self._path.len;
-                    defer self._path.len = orig_path_len;
+                    const path = self._path;
 
-                    self._append_to_path(el.name);
-
-                    if (slice.last(self._ignore_stack.items)) |e| {
-                        const ignore_path = self._path[self._ignore_offset..];
-                        if (e.ignore.match(ignore_path))
-                            continue;
-                    }
+                    try cb.call(subdir, path, offsets, Kind.Enter);
 
                     try self._walk(subdir, cb);
+
+                    try cb.call(subdir, path, offsets, Kind.Leave);
                 },
                 else => {},
             }
@@ -171,8 +182,8 @@ test "walk" {
     walker.filter = .{ .extensions = &[_][]const u8{ ".o", ".exe" } };
 
     var cb = struct {
-        pub fn call(_: *@This(), dir: std.fs.Dir, path: []const u8, offsets: Offsets) !void {
-            std.debug.print("dir: {}, path: {s}, offsets: {}\n", .{ dir, path, offsets });
+        pub fn call(_: *@This(), dir: std.fs.Dir, path: []const u8, maybe_offsets: ?Offsets, kind: Kind) !void {
+            std.debug.print("dir: {}, path: {s}, offsets: {?}, kind: {}\n", .{ dir, path, maybe_offsets, kind });
         }
     }{};
 
