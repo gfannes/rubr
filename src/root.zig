@@ -14,6 +14,7 @@ pub const log = @import("log.zig");
 pub const lsp = @import("lsp.zig");
 pub const index = @import("index.zig");
 pub const fuzz = @import("fuzz.zig");
+pub const tree = @import("tree.zig");
 
 test {
     ut.refAllDecls(@This());
@@ -30,4 +31,5 @@ test {
     ut.refAllDecls(lsp);
     ut.refAllDecls(index);
     ut.refAllDecls(fuzz);
+    ut.refAllDecls(tree);
 }
