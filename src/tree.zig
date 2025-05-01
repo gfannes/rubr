@@ -4,12 +4,16 @@ pub const Error = error{
     UnknownNode,
 };
 
-const Id = usize;
-
 pub fn Tree(Data: type) type {
     return struct {
         const Self = @This();
+        pub const Id = usize;
         const Ids = std.ArrayList(usize);
+
+        pub const Entry = struct {
+            id: usize,
+            data: *Data,
+        };
 
         const Node = struct {
             data: Data,
@@ -37,6 +41,9 @@ pub fn Tree(Data: type) type {
                 return Error.UnknownNode;
             return &self.nodes.items[id].data;
         }
+        pub fn ptr(self: *Self, id: Id) *Data {
+            return &self.nodes.items[id].data;
+        }
 
         pub fn parent(self: Self, id: Id) !?Id {
             if (id >= self.nodes.items.len)
@@ -44,7 +51,7 @@ pub fn Tree(Data: type) type {
             return self.nodes.items[id].parent_id;
         }
 
-        pub fn addChild(self: *Self, maybe_parent_id: ?Id) !struct { Id, *Data } {
+        pub fn addChild(self: *Self, maybe_parent_id: ?Id) !Entry {
             var ids: *Ids = undefined;
             if (maybe_parent_id) |parent_id| {
                 if (parent_id >= self.nodes.items.len)
@@ -61,7 +68,7 @@ pub fn Tree(Data: type) type {
             child.child_ids = Ids.init(self.a);
             child.parent_id = maybe_parent_id;
 
-            return .{ child_id, &child.data };
+            return Entry{ .id = child_id, .data = &child.data };
         }
 
         pub fn depth(self: Self, id: Id) !usize {
@@ -85,12 +92,18 @@ pub fn Tree(Data: type) type {
         }
         fn dfs_(self: *Self, id: Id, before: bool, cb: anytype) !void {
             const n = &self.nodes.items[id];
+            const entry = Entry{ .id = id, .data = &n.data };
             if (before)
-                try cb.call(id, &n.data);
+                try cb.call(entry);
             for (n.child_ids.items) |child_id|
                 try self.dfs_(child_id, before, cb);
             if (!before)
-                try cb.call(id, &n.data);
+                try cb.call(entry);
+        }
+
+        pub fn each(self: *Self, cb: anytype) !void {
+            for (self.nodes.items, 0..) |*node, id|
+                try cb.call(Entry{ .id = id, .data = &node.data });
         }
     };
 }
@@ -107,33 +120,32 @@ test "tree" {
 
     try ut.expectEqual(Error.UnknownNode, tree.get(0));
 
-    const root_id, const root_data = try tree.addChild(null);
-    try ut.expectEqual(0, root_id);
-    root_data.i = 0;
+    const root = try tree.addChild(null);
+    try ut.expectEqual(0, root.id);
+    root.data.i = 0;
 
     {
-        const ch1_id, const ch1_data = try tree.addChild(root_id);
-        try ut.expectEqual(1, ch1_id);
-        ch1_data.i = 1;
+        const ch1 = try tree.addChild(root.id);
+        try ut.expectEqual(1, ch1.id);
+        ch1.data.i = 1;
         {
-            const ch2_id, const ch2_data = try tree.addChild(ch1_id);
-            _ = ch2_id;
-            ch2_data.i = 2;
+            const ch2 = try tree.addChild(ch1.id);
+            ch2.data.i = 2;
         }
         {
-            const ch3_id, const ch3_data = try tree.addChild(ch1_id);
-            _ = ch3_id;
-            ch3_data.i = 3;
+            const ch3 = try tree.addChild(ch1.id);
+            ch3.data.i = 3;
         }
     }
 
     const cb = struct {
         const Self = @This();
 
-        tree: *Tree(Data),
+        const MyTree = Tree(Data);
+        tree: *MyTree,
 
-        pub fn call(my: Self, id: Id, data: *Data) !void {
-            std.debug.print("{} {} {}\n", .{ id, data.i, try my.tree.depth(id) });
+        pub fn call(my: Self, entry: MyTree.Entry) !void {
+            std.debug.print("{} {} {}\n", .{ entry.id, entry.data.i, try my.tree.depth(entry.id) });
         }
     }{ .tree = &tree };
 
