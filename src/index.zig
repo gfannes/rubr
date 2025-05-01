@@ -14,7 +14,34 @@ pub const Range = struct {
     }
 };
 
-test "index" {
+pub fn Ptr(T: type) type {
+    return struct {
+        const Self = @This();
+
+        ix: usize = 0,
+
+        pub fn ptr(self: Self, slice: []T) ?*T {
+            if (self.ix >= slice.len)
+                return null;
+            return &slice[self.ix];
+        }
+    };
+}
+
+test "index.Ptr" {
+    const ut = std.testing;
+
+    var data = [_]i64{ 0, 1, 2 };
+
+    const P = Ptr(i64);
+
+    try ut.expectEqual(&data[0], (P{ .ix = 0 }).ptr(&data));
+    try ut.expectEqual(&data[1], (P{ .ix = 1 }).ptr(&data));
+    try ut.expectEqual(&data[2], (P{ .ix = 2 }).ptr(&data));
+    try ut.expectEqual(null, (P{ .ix = 3 }).ptr(&data));
+}
+
+test "index.Range" {
     const ut = std.testing;
 
     var r = Range{};
