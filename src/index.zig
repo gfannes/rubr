@@ -14,15 +14,21 @@ pub const Range = struct {
     }
 };
 
+// Type-safe index to work with 'pointers into a slice'
 pub fn Ptr(T: type) type {
     return struct {
         const Self = @This();
 
         ix: usize = 0,
 
-        pub fn ptr(self: Self, slice: []T) ?*T {
+        pub fn get(self: Self, slice: []T) ?*T {
             if (self.ix >= slice.len)
                 return null;
+            return &slice[self.ix];
+        }
+
+        // Unchecked version of get()
+        pub fn ptr(self: Self, slice: []T) *T {
             return &slice[self.ix];
         }
     };
@@ -35,10 +41,13 @@ test "index.Ptr" {
 
     const P = Ptr(i64);
 
+    try ut.expectEqual(&data[0], (P{ .ix = 0 }).get(&data));
     try ut.expectEqual(&data[0], (P{ .ix = 0 }).ptr(&data));
+    try ut.expectEqual(&data[1], (P{ .ix = 1 }).get(&data));
     try ut.expectEqual(&data[1], (P{ .ix = 1 }).ptr(&data));
+    try ut.expectEqual(&data[2], (P{ .ix = 2 }).get(&data));
     try ut.expectEqual(&data[2], (P{ .ix = 2 }).ptr(&data));
-    try ut.expectEqual(null, (P{ .ix = 3 }).ptr(&data));
+    try ut.expectEqual(null, (P{ .ix = 3 }).get(&data));
 }
 
 test "index.Range" {
