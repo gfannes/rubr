@@ -8,7 +8,7 @@ pub fn Tree(Data: type) type {
     return struct {
         const Self = @This();
         pub const Id = usize;
-        const Ids = std.ArrayList(usize);
+        pub const Ids = std.ArrayList(usize);
 
         pub const Entry = struct {
             id: usize,
@@ -45,10 +45,16 @@ pub fn Tree(Data: type) type {
             return &self.nodes.items[id].data;
         }
 
-        pub fn parent(self: Self, id: Id) !?Id {
+        pub fn parent(self: Self, id: Id) !?Entry {
             if (id >= self.nodes.items.len)
                 return Error.UnknownNode;
-            return self.nodes.items[id].parent_id;
+            if (self.nodes.items[id].parent_id) |pid|
+                return Entry{ .id = pid, .data = &self.nodes.items[pid].data };
+            return null;
+        }
+
+        pub fn childIds(self: Self, parent_id: Id) []const Id {
+            return self.nodes.items[parent_id].child_ids.items;
         }
 
         pub fn addChild(self: *Self, maybe_parent_id: ?Id) !Entry {
