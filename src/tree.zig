@@ -91,18 +91,18 @@ pub fn Tree(Data: type) type {
             return d;
         }
 
-        pub fn dfs(self: *Self, before: bool, cb: anytype) !void {
+        pub fn dfsAll(self: *Self, before: bool, cb: anytype) !void {
             for (self.root_ids.items) |root_id| {
-                try self.dfs_(root_id, before, cb);
+                try self.dfs(root_id, before, cb);
             }
         }
-        fn dfs_(self: *Self, id: Id, before: bool, cb: anytype) !void {
+        pub fn dfs(self: *Self, id: Id, before: bool, cb: anytype) !void {
             const n = &self.nodes.items[id];
             const entry = Entry{ .id = id, .data = &n.data };
             if (before)
                 try cb.call(entry);
             for (n.child_ids.items) |child_id|
-                try self.dfs_(child_id, before, cb);
+                try self.dfs(child_id, before, cb);
             if (!before)
                 try cb.call(entry);
         }
@@ -155,5 +155,5 @@ test "tree" {
         }
     }{ .tree = &tree };
 
-    try tree.dfs(true, cb);
+    try tree.dfsAll(true, cb);
 }
