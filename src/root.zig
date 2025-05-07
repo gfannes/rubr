@@ -16,6 +16,13 @@ pub const index = @import("index.zig");
 pub const fuzz = @import("fuzz.zig");
 pub const tree = @import("tree.zig");
 
+pub fn optional(x: anytype) ?@TypeOf(x) {
+    return x;
+}
+pub fn none(T: type) ?T {
+    return null;
+}
+
 test {
     ut.refAllDecls(@This());
     ut.refAllDecls(walker);

@@ -41,7 +41,11 @@ pub fn Tree(Data: type) type {
                 return Error.UnknownNode;
             return &self.nodes.items[id].data;
         }
+
         pub fn ptr(self: *Self, id: Id) *Data {
+            return &self.nodes.items[id].data;
+        }
+        pub fn cptr(self: Self, id: Id) *const Data {
             return &self.nodes.items[id].data;
         }
 
