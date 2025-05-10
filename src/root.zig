@@ -15,13 +15,8 @@ pub const lsp = @import("lsp.zig");
 pub const index = @import("index.zig");
 pub const fuzz = @import("fuzz.zig");
 pub const tree = @import("tree.zig");
-
-pub fn optional(x: anytype) ?@TypeOf(x) {
-    return x;
-}
-pub fn none(T: type) ?T {
-    return null;
-}
+pub const algo = @import("algo.zig");
+pub const opt = @import("opt.zig");
 
 test {
     ut.refAllDecls(@This());
@@ -39,4 +34,6 @@ test {
     ut.refAllDecls(index);
     ut.refAllDecls(fuzz);
     ut.refAllDecls(tree);
+    ut.refAllDecls(algo);
+    ut.refAllDecls(opt);
 }
