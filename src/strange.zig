@@ -84,6 +84,14 @@ pub const Strange = struct {
         return false;
     }
 
+    pub fn popOne(self: *Self) ?u8 {
+        if (self.content.len > 0) {
+            defer self._popFront(1);
+            return self.content[0];
+        }
+        return null;
+    }
+
     pub fn popStr(self: *Self, s: []const u8) bool {
         if (std.mem.startsWith(u8, self.content, s)) {
             self._popFront(s.len);

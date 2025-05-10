@@ -15,6 +15,7 @@ pub const Request = struct {
         workspaceFolders: ?[]WorkspaceFolder = null,
         textDocument: ?TextDocumentItem = null,
         query: ?String = null,
+        contentChanges: ?[]ContentChange = null,
     };
 
     jsonrpc: String,
@@ -81,6 +82,11 @@ pub const TextDocumentItem = struct {
 pub const WorkspaceFolder = struct {
     name: String,
     uri: String,
+};
+
+pub const ContentChange = struct {
+    range: ?Range = null,
+    text: String,
 };
 
 pub const ClientInfo = struct {
@@ -222,7 +228,12 @@ pub const ServerCapabilities = struct {
 
         workspaceFolders: ?WorkspaceFolders = null,
     };
+    pub const TextDocumentSyncOptions = struct {
+        openClose: ?bool = true,
+        change: ?u32 = 2,
+    };
 
+    textDocumentSync: ?TextDocumentSyncOptions = null,
     documentSymbolProvider: ?bool = null,
     workspaceSymbolProvider: ?bool = null,
     workspace: ?Workspace = null,
