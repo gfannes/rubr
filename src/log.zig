@@ -43,6 +43,9 @@ pub const Log = struct {
     pub fn print(self: Self, comptime fmt: []const u8, args: anytype) !void {
         try self._writer.print(fmt, args);
     }
+    pub fn info(self: Self, comptime fmt: []const u8, args: anytype) !void {
+        try self._writer.print("Info: " ++ fmt, args);
+    }
     pub fn warning(self: Self, comptime fmt: []const u8, args: anytype) !void {
         try self._writer.print("Warning: " ++ fmt, args);
     }
