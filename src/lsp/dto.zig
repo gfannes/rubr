@@ -16,6 +16,7 @@ pub const Request = struct {
         textDocument: ?TextDocumentItem = null,
         query: ?String = null,
         contentChanges: ?[]ContentChange = null,
+        position: ?Position = null,
     };
 
     jsonrpc: String,
@@ -236,6 +237,7 @@ pub const ServerCapabilities = struct {
     textDocumentSync: ?TextDocumentSyncOptions = null,
     documentSymbolProvider: ?bool = null,
     workspaceSymbolProvider: ?bool = null,
+    definitionProvider: ?bool = null,
     workspace: ?Workspace = null,
 };
 
