@@ -17,6 +17,7 @@ pub const Request = struct {
         query: ?String = null,
         contentChanges: ?[]ContentChange = null,
         position: ?Position = null,
+        context: ?ReferenceContext = null,
     };
 
     jsonrpc: String,
@@ -41,6 +42,10 @@ pub fn Response(Result: type) type {
 pub const InitializeResult = struct {
     capabilities: ServerCapabilities,
     serverInfo: ServerInfo,
+};
+
+pub const ReferenceContext = struct {
+    includeDeclaration: ?bool,
 };
 
 pub const Position = struct {
