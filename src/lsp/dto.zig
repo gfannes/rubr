@@ -238,6 +238,7 @@ pub const ServerCapabilities = struct {
     documentSymbolProvider: ?bool = null,
     workspaceSymbolProvider: ?bool = null,
     definitionProvider: ?bool = null,
+    referencesProvider: ?bool = null,
     workspace: ?Workspace = null,
 };
 
