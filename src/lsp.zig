@@ -84,28 +84,6 @@ pub const Server = struct {
         try self.out.print("Content-Length: {}\r\n\r\n{s}", .{ self.content.items.len, self.content.items });
     }
 
-    pub fn alloc(self: *Self, dst: anytype, count: usize) !AllocType(@TypeOf(dst.*)) {
-        _ = self;
-        const Dst = @TypeOf(dst.*);
-        const typeInfo = @typeInfo(Dst);
-        switch (typeInfo) {
-            .optional => {
-                if (count != 1) return Error.UnexpectedCountForOptional;
-                dst.* = typeInfo.optional.child{};
-                return &(dst.* orelse unreachable);
-            },
-            else => unreachable,
-        }
-    }
-
-    fn AllocType(T: type) type {
-        const ti = @typeInfo(T);
-        switch (ti) {
-            .optional => return *ti.optional.child,
-            else => unreachable,
-        }
-    }
-
     fn readHeader(self: *Self) !void {
         self.content_length = null;
 
@@ -133,6 +111,71 @@ pub const Server = struct {
             try self.content.resize(cl);
             if (try self.in.readAll(self.content.items) != cl) return Error.CouldNotReadData;
         }
+    }
+};
+
+pub const Client = struct {
+    const Self = @This();
+    const Buffer = std.ArrayList(u8);
+
+    in: std.fs.File.Reader,
+    out: std.fs.File.Writer,
+    log: ?std.fs.File.Writer,
+    a: std.mem.Allocator,
+
+    content_length: ?usize = null,
+    content: Buffer,
+
+    aa: std.heap.ArenaAllocator,
+    request: ?dto.Request = null,
+
+    res_initialize: dto.Response(dto.InitializeResult) = undefined,
+
+    pub fn init(in: std.fs.File.Reader, out: std.fs.File.Writer, log: ?std.fs.File.Writer, a: std.mem.Allocator) Self {
+        return Self{
+            .in = in,
+            .out = out,
+            .log = log,
+            .a = a,
+            .content = Buffer.init(a),
+            .aa = std.heap.ArenaAllocator.init(a),
+        };
+    }
+    pub fn deinit(self: *Self) void {
+        self.content.deinit();
+        self.aa.deinit();
+    }
+
+    pub fn send(self: *Self, request: dto.Request) !void {
+        try self.content.resize(0);
+        try std.json.stringify(request, .{}, self.content.writer());
+        if (self.log) |log|
+            try log.print("[Request]({s})\n", .{self.content.items});
+
+        try self.out.print("Content-Length: {}\r\n\r\n{s}", .{ self.content.items.len, self.content.items });
+    }
+
+    pub fn receive(self: *Self, T: type) !*const T {
+        self.aa.deinit();
+        self.aa = std.heap.ArenaAllocator.init(self.a);
+
+        try self.readHeader();
+        try self.readContent();
+
+        if (self.log) |log|
+            try log.print("[Response]({s})\n", .{self.content.items});
+
+        const resp = self.response_(T);
+        resp.* = (try std.json.parseFromSlice(T, self.aa.allocator(), self.content.items, .{})).value;
+
+        return resp;
+    }
+
+    fn response_(self: *Self, T: type) *T {
+        if (dto.Response(T) == @TypeOf(self.res_initialize)) {
+            return &self.res_initialize;
+        }
+        unreachable;
     }
 };
 
