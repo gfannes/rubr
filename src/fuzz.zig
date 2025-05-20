@@ -1,17 +1,14 @@
 const std = @import("std");
 
-// &todo: Support null distance when a character from needle is not found
-
 // Only if needle constains upper-case letters, case-sensitive search will happen.
-pub fn distance(needle_in: []const u8, haystack_in: []const u8) f64 {
-    if (needle_in.len == 0 or haystack_in.len == 0)
-        return 0.0;
-
+// 'maybe_skip_count' can be used to return the number of characters that could not be matched.
+pub fn distance(needle_in: []const u8, haystack_in: []const u8, maybe_skip_count: ?*usize) f64 {
     // We wrap the computation of the total distance in a closure to support closure.indexOf() to take 'case_sensitive' into account
     var closure = struct {
         const Cl = @This();
 
         case_sensitive: bool = false,
+        skip_count: usize = 0,
 
         fn total_distance(cl: *Cl, haystack: []const u8, needle: []const u8) f64 {
             for (needle) |ch|
@@ -33,6 +30,7 @@ pub fn distance(needle_in: []const u8, haystack_in: []const u8) f64 {
                         defer offset = ix + 1;
                         break :blk haystack.len - offset + ix;
                     } else {
+                        cl.skip_count += 1;
                         break :blk haystack.len;
                     }
                 };
@@ -51,8 +49,10 @@ pub fn distance(needle_in: []const u8, haystack_in: []const u8) f64 {
     }{};
 
     const total_distance = closure.total_distance(haystack_in, needle_in);
+    if (maybe_skip_count) |v|
+        v.* = closure.skip_count;
 
-    return total_distance / @as(f64, @floatFromInt(needle_in.len));
+    return if (needle_in.len > 0) total_distance / @as(f64, @floatFromInt(needle_in.len)) else 0.0;
 }
 
 pub fn max_distance(needle: []const u8, max_haystack_len: usize) f64 {
@@ -62,8 +62,18 @@ pub fn max_distance(needle: []const u8, max_haystack_len: usize) f64 {
 }
 
 test "fuzz" {
+    const ut = std.testing;
+
     const needle = "abc";
     for (&[_][]const u8{ "abc", "bca", "ab", "axbxc", "", "xxx" }) |str| {
-        std.debug.print("{s}: {} {} {}\n", .{ str, distance(needle, str), max_distance(needle, str.len), std.math.exp(-distance(needle, str)) });
+        std.debug.print("{s}: {} {} {}\n", .{ str, distance(needle, str, null), max_distance(needle, str.len), std.math.exp(-distance(needle, str, null)) });
     }
+
+    var skip_count: usize = undefined;
+    _ = distance("abc", "abc", &skip_count);
+    try ut.expectEqual(0, skip_count);
+    _ = distance("ccc", "abc", &skip_count);
+    try ut.expectEqual(0, skip_count);
+    _ = distance("axbxc", "abc", &skip_count);
+    try ut.expectEqual(2, skip_count);
 }
