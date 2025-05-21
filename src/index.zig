@@ -15,7 +15,7 @@ pub const Range = struct {
 };
 
 // Type-safe index to work with 'pointers into a slice'
-pub fn Ptr(T: type) type {
+pub fn Ix(T: type) type {
     return struct {
         const Self = @This();
 
@@ -26,28 +26,36 @@ pub fn Ptr(T: type) type {
                 return null;
             return &slice[self.ix];
         }
+        pub fn cget(self: Self, slice: []const T) ?*const T {
+            if (self.ix >= slice.len)
+                return null;
+            return &slice[self.ix];
+        }
 
         // Unchecked version of get()
         pub fn ptr(self: Self, slice: []T) *T {
             return &slice[self.ix];
         }
+        pub fn cptr(self: Self, slice: []const T) *const T {
+            return &slice[self.ix];
+        }
     };
 }
 
-test "index.Ptr" {
+test "index.Ref" {
     const ut = std.testing;
 
     var data = [_]i64{ 0, 1, 2 };
 
-    const P = Ptr(i64);
+    const I = Ix(i64);
 
-    try ut.expectEqual(&data[0], (P{ .ix = 0 }).get(&data));
-    try ut.expectEqual(&data[0], (P{ .ix = 0 }).ptr(&data));
-    try ut.expectEqual(&data[1], (P{ .ix = 1 }).get(&data));
-    try ut.expectEqual(&data[1], (P{ .ix = 1 }).ptr(&data));
-    try ut.expectEqual(&data[2], (P{ .ix = 2 }).get(&data));
-    try ut.expectEqual(&data[2], (P{ .ix = 2 }).ptr(&data));
-    try ut.expectEqual(null, (P{ .ix = 3 }).get(&data));
+    try ut.expectEqual(&data[0], (I{ .ix = 0 }).get(&data));
+    try ut.expectEqual(&data[0], (I{ .ix = 0 }).ptr(&data));
+    try ut.expectEqual(&data[1], (I{ .ix = 1 }).get(&data));
+    try ut.expectEqual(&data[1], (I{ .ix = 1 }).ptr(&data));
+    try ut.expectEqual(&data[2], (I{ .ix = 2 }).get(&data));
+    try ut.expectEqual(&data[2], (I{ .ix = 2 }).ptr(&data));
+    try ut.expectEqual(null, (I{ .ix = 3 }).get(&data));
 }
 
 test "index.Range" {
