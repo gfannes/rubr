@@ -21,6 +21,10 @@ pub fn Ix(T: type) type {
 
         ix: usize = 0,
 
+        pub fn init(ix: usize) Self {
+            return Self{ .ix = ix };
+        }
+
         pub fn get(self: Self, slice: []T) ?*T {
             if (self.ix >= slice.len)
                 return null;
