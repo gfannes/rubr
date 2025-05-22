@@ -25,6 +25,10 @@ pub fn Ix(T: type) type {
             return Self{ .ix = ix };
         }
 
+        pub fn eql(self: Self, rhs: Self) bool {
+            return self.ix == rhs.ix;
+        }
+
         pub fn get(self: Self, slice: []T) ?*T {
             if (self.ix >= slice.len)
                 return null;
