@@ -10,6 +10,7 @@ pub fn index(comptime T: type, haystack: []const []const T, needle: []const T) ?
     }
     return null;
 }
+
 pub fn contains(comptime T: type, haystack: []const []const T, needle: []const T) bool {
     return index(T, haystack, needle) != null;
 }
