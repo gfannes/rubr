@@ -10,12 +10,18 @@ pub fn first(slice: anytype) ?@TypeOf(slice[0]) {
 pub fn firstPtr(slice: anytype) ?@TypeOf(&slice[0]) {
     return if (slice.len > 0) &slice[0] else null;
 }
+pub fn firstPtrUnsafe(slice: anytype) @TypeOf(&slice[0]) {
+    return &slice[0];
+}
 
 pub fn last(slice: anytype) ?@TypeOf(slice[0]) {
     return if (slice.len > 0) slice[slice.len - 1] else null;
 }
 pub fn lastPtr(slice: anytype) ?@TypeOf(&slice[0]) {
     return if (slice.len > 0) &slice[slice.len - 1] else null;
+}
+pub fn lastPtrUnsafe(slice: anytype) @TypeOf(&slice[0]) {
+    return &slice[slice.len - 1];
 }
 
 test {
