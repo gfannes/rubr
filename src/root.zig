@@ -18,6 +18,8 @@ pub const tree = @import("tree.zig");
 pub const algo = @import("algo.zig");
 pub const opt = @import("opt.zig");
 
+pub usingnamespace slice;
+
 test {
     ut.refAllDecls(@This());
     ut.refAllDecls(walker);
