@@ -95,12 +95,12 @@ pub fn Tree(Data: type) type {
             return d;
         }
 
-        pub fn dfsAll(self: *Self, before: bool, cb: anytype) !void {
+        pub fn dfsAll(self: *Self, before: bool, cb: anytype) CallbackErrorSet(@TypeOf(cb.*))!void {
             for (self.root_ids.items) |root_id| {
                 try self.dfs(root_id, before, cb);
             }
         }
-        pub fn dfs(self: *Self, id: Id, before: bool, cb: anytype) !void {
+        pub fn dfs(self: *Self, id: Id, before: bool, cb: anytype) CallbackErrorSet(@TypeOf(cb.*))!void {
             const n = &self.nodes.items[id];
             const entry = Entry{ .id = id, .data = &n.data };
             if (before)
@@ -111,11 +111,26 @@ pub fn Tree(Data: type) type {
                 try cb.call(entry);
         }
 
-        pub fn each(self: *Self, cb: anytype) !void {
+        pub fn each(self: *Self, cb: anytype) CallbackErrorSet(@TypeOf(cb.*))!void {
             for (self.nodes.items, 0..) |*node, id|
                 try cb.call(Entry{ .id = id, .data = &node.data });
         }
     };
+}
+
+// When a callback calls some Tree func itself, Zig cannot infer the ErrorSet
+// With below comptime machinery, we can express that a certain Tree func has
+// the same ErrorSet as the Callback
+fn CallbackErrorSet(Callback: type) type {
+    const fn_info = @typeInfo(@TypeOf(Callback.call)).@"fn";
+    const rt = fn_info.return_type orelse
+        @compileError("Callback.call() must have a return value");
+
+    const rt_info = @typeInfo(rt);
+    if (rt_info != .error_union)
+        @compileError("Callback.call() must return an error union");
+
+    return rt_info.error_union.error_set;
 }
 
 test "tree" {
