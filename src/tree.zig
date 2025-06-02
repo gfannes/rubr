@@ -174,5 +174,5 @@ test "tree" {
         }
     }{ .tree = &tree };
 
-    try tree.dfsAll(true, cb);
+    try tree.dfsAll(true, &cb);
 }
