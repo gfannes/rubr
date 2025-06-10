@@ -6,8 +6,8 @@ pub const Args = struct {
     argv: [][]const u8 = &.{},
     aa: std.heap.ArenaAllocator,
 
-    pub fn init(ma: std.mem.Allocator) Self {
-        return Self{ .aa = std.heap.ArenaAllocator.init(ma) };
+    pub fn init(a: std.mem.Allocator) Self {
+        return Self{ .aa = std.heap.ArenaAllocator.init(a) };
     }
     pub fn deinit(self: *Self) void {
         self.aa.deinit();
