@@ -1,6 +1,7 @@
 # Reusable Utilities By RUBR
 
-## &todo Create LSP to work with amp
+- [x] Support for export to single file
+	- `rake export[cli,slice]`
 
 ## &ansi ANSI code support
 
