@@ -51,7 +51,7 @@ task :export do |task,args|
                 prev_empty = line.empty?
             end
         end
-        puts("}")
+        puts("};")
     end
 end
 
