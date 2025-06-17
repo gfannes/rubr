@@ -39,7 +39,7 @@ pub const Walker = struct {
 
     _ignore_stack: IgnoreStack = undefined,
 
-    pub fn init(a: std.mem.Allocator) !Walker {
+    pub fn init(a: std.mem.Allocator) Walker {
         return Walker{ ._a = a, ._ignore_stack = IgnoreStack.init(a) };
     }
 
@@ -178,7 +178,7 @@ fn is_hidden(name: []const u8) bool {
 test "walk" {
     const ut = std.testing;
 
-    var walker = try Walker.init(ut.allocator);
+    var walker = Walker.init(ut.allocator);
     defer walker.deinit();
     walker.filter = .{ .extensions = &[_][]const u8{ ".o", ".exe" } };
 
