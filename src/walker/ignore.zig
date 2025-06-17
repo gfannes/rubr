@@ -1,12 +1,11 @@
 const std = @import("std");
-const ut = std.testing;
 
-const Strange = @import("../strange.zig").Strange;
-const glob = @import("../glob.zig");
+const strng = @import("../strng.zig");
+const glb = @import("../glb.zig");
 
 pub const Ignore = struct {
     const Self = @This();
-    const Globs = std.ArrayList(glob.Glob);
+    const Globs = std.ArrayList(glb.Glob);
     const Strings = std.ArrayList([]const u8);
 
     globs: Globs,
@@ -42,9 +41,9 @@ pub const Ignore = struct {
         var self = Self.init(ma);
         errdefer self.deinit();
 
-        var strange_content = Strange{ .content = content };
+        var strange_content = strng.Strange{ .content = content };
         while (strange_content.popLine()) |line| {
-            var strange_line = Strange{ .content = line };
+            var strange_line = strng.Strange{ .content = line };
 
             // Trim
             _ = strange_line.popMany(' ');
@@ -64,14 +63,14 @@ pub const Ignore = struct {
             // 'dir/'     ignores '**/dir/**'
             // '/dir/'    ignores 'dir/**'
             // 'test.txt' ignores '**/test.txt'
-            var config = glob.Config{};
+            var config = glb.Config{};
             if (strange_line.popMany('/') == 0)
                 config.front = "**";
             config.pattern = strange_line.str();
             if (strange_line.back() == '/')
                 config.back = "**";
 
-            try globs.append(try glob.Glob.init(config, ma));
+            try globs.append(try glb.Glob.init(config, ma));
         }
 
         return self;
@@ -82,8 +81,8 @@ pub const Ignore = struct {
         const fba = std.heap.FixedBufferAllocator.init(buffer);
         const my_ext = try std.mem.concat(fba, u8, &[_][]const u8{ ".", ext });
 
-        const glob_config = glob.Config{ .pattern = my_ext, .front = "**" };
-        try self.globs.append(try glob.Glob.init(glob_config, self.globs.allocator));
+        const glob_config = glb.Config{ .pattern = my_ext, .front = "**" };
+        try self.globs.append(try glb.Glob.init(glob_config, self.globs.allocator));
     }
 
     pub fn match(self: Self, fp: []const u8) bool {
@@ -101,6 +100,8 @@ pub const Ignore = struct {
 };
 
 test "initFromContent" {
+    const ut = std.testing;
+
     // '*.txt'    ignores '**/*.txt'
     // 'dir/'     ignores '**/dir/**'
     // '/dir/'    ignores 'dir/**'

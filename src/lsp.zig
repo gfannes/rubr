@@ -2,7 +2,7 @@ const std = @import("std");
 
 pub const dto = @import("lsp/dto.zig");
 
-const strange = @import("strange.zig");
+const strng = @import("strng.zig");
 
 pub const Error = error{
     UnexpectedKey,
@@ -92,7 +92,7 @@ pub const Server = struct {
             if (self.log) |log|
                 try log.print("[Line](content:{s})\n", .{line});
 
-            var str = strange.Strange{ .content = line };
+            var str = strng.Strange{ .content = line };
 
             if (str.popStr("Content-Length:")) {
                 _ = str.popMany(' ');

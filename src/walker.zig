@@ -1,10 +1,9 @@
 // &todo Take `.gitignore` and `.ignore` into account
 
 const std = @import("std");
-const ut = std.testing;
 
 const ignore = @import("walker/ignore.zig");
-const slice = @import("slice.zig");
+const slc = @import("slc.zig");
 
 const Error = error{
     CouldNotReadIgnore,
@@ -101,7 +100,7 @@ pub const Walker = struct {
 
             switch (el.kind) {
                 std.fs.File.Kind.file => {
-                    if (slice.last(self._ignore_stack.items)) |e| {
+                    if (slc.last(self._ignore_stack.items)) |e| {
                         const ignore_path = self._path[self._ignore_offset..];
                         if (e.ignore.match(ignore_path))
                             continue;
@@ -110,7 +109,7 @@ pub const Walker = struct {
                     try cb.call(dir, self._path, offsets, Kind.File);
                 },
                 std.fs.File.Kind.directory => {
-                    if (slice.last(self._ignore_stack.items)) |e| {
+                    if (slc.last(self._ignore_stack.items)) |e| {
                         const ignore_path = self._path[self._ignore_offset..];
                         if (e.ignore.match(ignore_path))
                             continue;
@@ -138,7 +137,7 @@ pub const Walker = struct {
                 v_mut.ignore.deinit();
             }
 
-            self._ignore_offset = if (slice.last(self._ignore_stack.items)) |x| x.path_len + 1 else 0;
+            self._ignore_offset = if (slc.last(self._ignore_stack.items)) |x| x.path_len + 1 else 0;
         }
     }
 
@@ -177,6 +176,8 @@ fn is_hidden(name: []const u8) bool {
 }
 
 test "walk" {
+    const ut = std.testing;
+
     var walker = try Walker.init(ut.allocator);
     defer walker.deinit();
     walker.filter = .{ .extensions = &[_][]const u8{ ".o", ".exe" } };

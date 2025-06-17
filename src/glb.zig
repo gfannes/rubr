@@ -1,9 +1,8 @@
 // &todo Support '?' pattern
 
 const std = @import("std");
-const ut = std.testing;
 
-const Strange = @import("strange.zig").Strange;
+const strng = @import("strng.zig");
 
 const Error = error{
     EmptyPattern,
@@ -32,32 +31,36 @@ const Wildcard = enum {
             Wildcard.All => a,
         };
     }
-
-    test "fromStr" {
-        try ut.expectEqual(Wildcard.None, Wildcard.fromStr(""));
-        try ut.expectEqual(Wildcard.Some, Wildcard.fromStr("*"));
-        try ut.expectEqual(Wildcard.All, Wildcard.fromStr("**"));
-        try ut.expectEqual(Error.IllegalWildcard, Wildcard.fromStr("x"));
-    }
-
-    test "max" {
-        const nothing = Wildcard.None;
-        const nopathsep = Wildcard.Some;
-        const anything = Wildcard.All;
-
-        try ut.expectEqual(Wildcard.None, Wildcard.max(nothing, nothing));
-
-        try ut.expectEqual(Wildcard.Some, Wildcard.max(nothing, nopathsep));
-        try ut.expectEqual(Wildcard.Some, Wildcard.max(nopathsep, nothing));
-        try ut.expectEqual(Wildcard.Some, Wildcard.max(nopathsep, nopathsep));
-
-        try ut.expectEqual(Wildcard.All, Wildcard.max(nothing, anything));
-        try ut.expectEqual(Wildcard.All, Wildcard.max(anything, nothing));
-        try ut.expectEqual(Wildcard.All, Wildcard.max(nopathsep, anything));
-        try ut.expectEqual(Wildcard.All, Wildcard.max(anything, nopathsep));
-        try ut.expectEqual(Wildcard.All, Wildcard.max(anything, anything));
-    }
 };
+
+test "fromStr" {
+    const ut = std.testing;
+
+    try ut.expectEqual(Wildcard.None, Wildcard.fromStr(""));
+    try ut.expectEqual(Wildcard.Some, Wildcard.fromStr("*"));
+    try ut.expectEqual(Wildcard.All, Wildcard.fromStr("**"));
+    try ut.expectEqual(Error.IllegalWildcard, Wildcard.fromStr("x"));
+}
+
+test "max" {
+    const ut = std.testing;
+
+    const nothing = Wildcard.None;
+    const nopathsep = Wildcard.Some;
+    const anything = Wildcard.All;
+
+    try ut.expectEqual(Wildcard.None, Wildcard.max(nothing, nothing));
+
+    try ut.expectEqual(Wildcard.Some, Wildcard.max(nothing, nopathsep));
+    try ut.expectEqual(Wildcard.Some, Wildcard.max(nopathsep, nothing));
+    try ut.expectEqual(Wildcard.Some, Wildcard.max(nopathsep, nopathsep));
+
+    try ut.expectEqual(Wildcard.All, Wildcard.max(nothing, anything));
+    try ut.expectEqual(Wildcard.All, Wildcard.max(anything, nothing));
+    try ut.expectEqual(Wildcard.All, Wildcard.max(nopathsep, anything));
+    try ut.expectEqual(Wildcard.All, Wildcard.max(anything, nopathsep));
+    try ut.expectEqual(Wildcard.All, Wildcard.max(anything, anything));
+}
 
 // A Part is easy to match: search for str and check if whatever in-between matches with wildcard
 const Part = struct {
@@ -99,7 +102,7 @@ pub const Glob = struct {
 
         var glob = Glob{ .ma = ma, .parts = Parts.init(ma) };
 
-        var strange = Strange{ .content = config.pattern };
+        var strange = strng.Strange{ .content = config.pattern };
 
         var wildcard = try Wildcard.fromStr(config.front);
 
@@ -227,6 +230,8 @@ pub const Glob = struct {
 };
 
 test "glob" {
+    const ut = std.testing;
+
     var glob = try Glob.init(.{ .pattern = "*ab*c*" }, ut.allocator);
     defer glob.deinit();
 
@@ -238,6 +243,8 @@ test "glob" {
 }
 
 test "without path separator" {
+    const ut = std.testing;
+
     var glob = try Glob.init(.{ .pattern = "*.wav" }, ut.allocator);
     defer glob.deinit();
 
@@ -248,6 +255,8 @@ test "without path separator" {
 }
 
 test "with path separator" {
+    const ut = std.testing;
+
     var glob = try Glob.init(.{ .pattern = "**.wav" }, ut.allocator);
     defer glob.deinit();
 
@@ -259,6 +268,8 @@ test "with path separator" {
 }
 
 test "with front some" {
+    const ut = std.testing;
+
     var glob = try Glob.init(.{ .pattern = "*abc", .front = "*" }, ut.allocator);
     defer glob.deinit();
 
@@ -270,6 +281,8 @@ test "with front some" {
 }
 
 test "with front any" {
+    const ut = std.testing;
+
     var glob = try Glob.init(.{ .pattern = "*abc", .front = "**" }, ut.allocator);
     defer glob.deinit();
 
@@ -281,6 +294,8 @@ test "with front any" {
 }
 
 test "with back some" {
+    const ut = std.testing;
+
     var glob = try Glob.init(.{ .pattern = "abc*", .back = "*" }, ut.allocator);
     defer glob.deinit();
 
@@ -290,6 +305,8 @@ test "with back some" {
 }
 
 test "with back any" {
+    const ut = std.testing;
+
     var glob = try Glob.init(.{ .pattern = "abc*", .back = "**" }, ut.allocator);
     defer glob.deinit();
 

@@ -5,7 +5,6 @@
 // - Support for post-body attributes?
 
 const std = @import("std");
-const ut = std.testing;
 
 pub const Strange = struct {
     const Self = @This();
@@ -144,12 +143,16 @@ pub const Strange = struct {
 };
 
 test "Strange.empty Strange.size" {
+    const ut = std.testing;
+
     const strange = Strange{ .content = "abc" };
     try ut.expectEqual(false, strange.empty());
     try ut.expectEqual(3, strange.size());
 }
 
 test "Strange.popLine" {
+    const ut = std.testing;
+
     var strange = Strange{ .content = "abc\ndef\r\nghi" };
     if (strange.popLine()) |line| {
         try ut.expectEqualSlices(u8, "abc", line);
@@ -165,6 +168,8 @@ test "Strange.popLine" {
 }
 
 test "Strange.popChar" {
+    const ut = std.testing;
+
     var strange = Strange{ .content = "abc" };
     try ut.expectEqual(true, strange.popChar('a'));
     try ut.expectEqual(false, strange.popChar('a'));
@@ -174,6 +179,8 @@ test "Strange.popChar" {
 }
 
 test "Strange.popCharBack" {
+    const ut = std.testing;
+
     var strange = Strange{ .content = "abc" };
     try ut.expectEqual(true, strange.popCharBack('c'));
     try ut.expectEqual(false, strange.popCharBack('c'));
@@ -183,6 +190,8 @@ test "Strange.popCharBack" {
 }
 
 test "Strange.popStr" {
+    const ut = std.testing;
+
     var strange = Strange{ .content = "abc" };
     try ut.expectEqual(true, strange.popStr("ab"));
     try ut.expectEqual(false, strange.popStr("ab"));
@@ -191,6 +200,8 @@ test "Strange.popStr" {
 }
 
 test "Strange.popInt" {
+    const ut = std.testing;
+
     const scns = [_]struct { []const u8, ?i32 }{ .{ "42", 42 }, .{ "-42", -42 }, .{ "+42", 42 }, .{ "not a number", null }, .{ "42 ", 42 } };
     for (scns) |scn| {
         const str, const exp = scn;
@@ -200,6 +211,8 @@ test "Strange.popInt" {
 }
 
 test "Strange.popTo Strange.popAll" {
+    const ut = std.testing;
+
     var strange = Strange{ .content = "abc" };
     if (strange.popTo('b')) |part| {
         try ut.expectEqualSlices(u8, "a", part);
@@ -208,6 +221,8 @@ test "Strange.popTo Strange.popAll" {
 }
 
 test "Strange.popMany" {
+    const ut = std.testing;
+
     var strange = Strange{ .content = "abbc" };
     try ut.expectEqual(0, strange.popMany('z'));
     try ut.expectEqual(1, strange.popMany('a'));
@@ -219,6 +234,8 @@ test "Strange.popMany" {
 }
 
 test "Strange.popManyBack" {
+    const ut = std.testing;
+
     var strange = Strange{ .content = "abbc" };
     try ut.expectEqual(0, strange.popManyBack('z'));
     try ut.expectEqual(1, strange.popManyBack('c'));
@@ -230,6 +247,8 @@ test "Strange.popManyBack" {
 }
 
 test "Strange.front Strange.back" {
+    const ut = std.testing;
+
     var strange = Strange{ .content = "abc" };
     try ut.expectEqual(@as(?u8, 'a'), strange.front());
     try ut.expectEqual(@as(?u8, 'c'), strange.back());
