@@ -27,10 +27,12 @@ pub const Scope = struct {
     pub fn deinit(self: Self) void {
         const elapse = now() - self.start;
         measurements[@intFromEnum(self.id)].max = elapse;
-        std.debug.print("elapse: {}\n", .{elapse});
+        const a = @divFloor(elapse, 1_000_000_000);
+        const b = elapse - a * 1_000_000_000;
+        std.debug.print("elapse: {}.{:0>9.9}s\n", .{ a, @as(u64, @intCast(b)) });
     }
 
-    fn now() i128 {
+    fn now() Timestamp {
         return std.time.nanoTimestamp();
     }
 };
