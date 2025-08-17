@@ -2,8 +2,6 @@ const std = @import("std");
 
 const util = @import("util.zig");
 
-// &todo: Move to rubr
-// - [x] Make Id handling external
 // &todo: Replace id arg for read/write funcs with comptime and check for its even/oddness
 
 // sw: SimpleWriter
