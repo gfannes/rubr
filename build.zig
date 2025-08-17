@@ -40,6 +40,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .filters = test_filters,
     });
+    lib_unit_tests.linkLibC();
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 

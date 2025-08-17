@@ -17,6 +17,8 @@ pub const fuzz = @import("fuzz.zig");
 pub const tree = @import("tree.zig");
 pub const algo = @import("algo.zig");
 pub const opt = @import("opt.zig");
+pub const util = @import("util.zig");
+pub const comm = @import("comm.zig");
 
 pub usingnamespace slc;
 
@@ -38,4 +40,6 @@ test {
     ut.refAllDecls(tree);
     ut.refAllDecls(algo);
     ut.refAllDecls(opt);
+    ut.refAllDecls(util);
+    ut.refAllDecls(comm);
 }
