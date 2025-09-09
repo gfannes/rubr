@@ -27,28 +27,28 @@ pub const Walker = struct {
 
     filter: Filter = .{},
 
-    _a: std.mem.Allocator,
+    a: std.mem.Allocator,
 
     // We keep track of the current path as a []const u8. If the caller has to do this,
     // he has to use Dir.realpath() which is less efficient.
-    _buffer: [std.fs.max_path_bytes]u8 = undefined,
-    _path: []const u8 = &.{},
-    _base: usize = undefined,
+    buffer: [std.fs.max_path_bytes]u8 = undefined,
+    path: []const u8 = &.{},
+    base: usize = undefined,
 
-    _ignore_offset: usize = 0,
+    ignore_offset: usize = 0,
 
-    _ignore_stack: IgnoreStack = undefined,
+    ignore_stack: IgnoreStack = .{},
 
     pub fn init(a: std.mem.Allocator) Walker {
-        return Walker{ ._a = a, ._ignore_stack = IgnoreStack.init(a) };
+        return Walker{ .a = a };
     }
 
     pub fn deinit(self: *Walker) void {
-        for (self._ignore_stack.items) |*item| {
+        for (self.ignore_stack.items) |*item| {
             item.ignore.deinit();
-            item.buffer.deinit();
+            item.buffer.deinit(self.a);
         }
-        self._ignore_stack.deinit();
+        self.ignore_stack.deinit(self.a);
     }
 
     // cb() is passed:
@@ -57,13 +57,13 @@ pub const Walker = struct {
     // - offsets: optional offsets for basename and filename. Only for the toplevel Enter/Leave is this null to avoid out of bound reading
     // - kind: Enter/Leave/File
     pub fn walk(self: *Walker, basedir: std.fs.Dir, cb: anytype) !void {
-        self._path = try basedir.realpath(".", &self._buffer);
-        self._base = self._path.len + 1;
+        self.path = try basedir.realpath(".", &self.buffer);
+        self.base = self.path.len + 1;
 
         var dir = try basedir.openDir(".", .{ .iterate = true });
         defer dir.close();
 
-        const path = self._path;
+        const path = self.path;
 
         try cb.call(dir, path, null, Kind.Enter);
         try self._walk(dir, cb);
@@ -78,16 +78,16 @@ pub const Walker = struct {
 
             const stat = try file.stat();
 
-            var ig = Ignore{ .buffer = try Buffer.initCapacity(self._a, stat.size) };
-            try ig.buffer.resize(stat.size);
+            var ig = Ignore{ .buffer = try Buffer.initCapacity(self.a, stat.size) };
+            try ig.buffer.resize(self.a, stat.size);
             if (stat.size != try file.readAll(ig.buffer.items))
                 return Error.CouldNotReadIgnore;
 
-            ig.ignore = try ignore.Ignore.initFromContent(ig.buffer.items, self._a);
-            ig.path_len = self._path.len;
-            try self._ignore_stack.append(ig);
+            ig.ignore = try ignore.Ignore.initFromContent(ig.buffer.items, self.a);
+            ig.path_len = self.path.len;
+            try self.ignore_stack.append(self.a, ig);
 
-            self._ignore_offset = ig.path_len + 1;
+            self.ignore_offset = ig.path_len + 1;
 
             added_ignore = true;
         } else |_| {}
@@ -97,25 +97,25 @@ pub const Walker = struct {
             if (!self.filter.call(dir, el))
                 continue;
 
-            const orig_path_len = self._path.len;
-            defer self._path.len = orig_path_len;
+            const orig_path_len = self.path.len;
+            defer self.path.len = orig_path_len;
 
-            const offsets = Offsets{ .base = self._base, .name = self._path.len + 1 };
+            const offsets = Offsets{ .base = self.base, .name = self.path.len + 1 };
             self._append_to_path(el.name);
 
             switch (el.kind) {
                 std.fs.File.Kind.file => {
-                    if (slc.last(self._ignore_stack.items)) |e| {
-                        const ignore_path = self._path[self._ignore_offset..];
+                    if (slc.last(self.ignore_stack.items)) |e| {
+                        const ignore_path = self.path[self.ignore_offset..];
                         if (e.ignore.match(ignore_path))
                             continue;
                     }
 
-                    try cb.call(dir, self._path, offsets, Kind.File);
+                    try cb.call(dir, self.path, offsets, Kind.File);
                 },
                 std.fs.File.Kind.directory => {
-                    if (slc.last(self._ignore_stack.items)) |e| {
-                        const ignore_path = self._path[self._ignore_offset..];
+                    if (slc.last(self.ignore_stack.items)) |e| {
+                        const ignore_path = self.path[self.ignore_offset..];
                         if (e.ignore.match(ignore_path))
                             continue;
                     }
@@ -123,7 +123,7 @@ pub const Walker = struct {
                     var subdir = try dir.openDir(el.name, .{ .iterate = true });
                     defer subdir.close();
 
-                    const path = self._path;
+                    const path = self.path;
 
                     try cb.call(subdir, path, offsets, Kind.Enter);
 
@@ -136,22 +136,22 @@ pub const Walker = struct {
         }
 
         if (added_ignore) {
-            if (self._ignore_stack.pop()) |v| {
-                v.buffer.deinit();
+            if (self.ignore_stack.pop()) |v| {
                 var v_mut = v;
+                v_mut.buffer.deinit(self.a);
                 v_mut.ignore.deinit();
             }
 
-            self._ignore_offset = if (slc.last(self._ignore_stack.items)) |x| x.path_len + 1 else 0;
+            self.ignore_offset = if (slc.last(self.ignore_stack.items)) |x| x.path_len + 1 else 0;
         }
     }
 
     fn _append_to_path(self: *Walker, name: []const u8) void {
-        self._buffer[self._path.len] = '/';
-        self._path.len += 1;
+        self.buffer[self.path.len] = '/';
+        self.path.len += 1;
 
-        std.mem.copyForwards(u8, self._buffer[self._path.len..], name);
-        self._path.len += name.len;
+        std.mem.copyForwards(u8, self.buffer[self.path.len..], name);
+        self.path.len += name.len;
     }
 };
 

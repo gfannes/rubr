@@ -8,7 +8,6 @@ pub const Error = error{
     UnexpectedKey,
     CouldNotReadEOH,
     CouldNotReadContentLength,
-    CouldNotReadData,
     UnexpectedCountForOptional,
     ExpectedValidRequest,
     ExpectedValidId,
@@ -18,29 +17,28 @@ pub const Server = struct {
     const Self = @This();
     const Buffer = std.ArrayList(u8);
 
-    in: std.fs.File.Reader,
-    out: std.fs.File.Writer,
-    log: ?std.fs.File.Writer,
+    in: *std.Io.Reader,
+    out: *std.Io.Writer,
+    log: ?*std.Io.Writer,
     a: std.mem.Allocator,
 
     content_length: ?usize = null,
-    content: Buffer,
+    content: Buffer = .{},
 
     aa: std.heap.ArenaAllocator,
     request: ?dto.Request = null,
 
-    pub fn init(in: std.fs.File.Reader, out: std.fs.File.Writer, log: ?std.fs.File.Writer, a: std.mem.Allocator) Self {
+    pub fn init(in: *std.Io.Reader, out: *std.Io.Writer, log: ?*std.Io.Writer, a: std.mem.Allocator) Self {
         return Self{
             .in = in,
             .out = out,
             .log = log,
             .a = a,
-            .content = Buffer.init(a),
             .aa = std.heap.ArenaAllocator.init(a),
         };
     }
     pub fn deinit(self: *Self) void {
-        self.content.deinit();
+        self.content.deinit(self.a);
         self.aa.deinit();
     }
 
@@ -76,8 +74,13 @@ pub const Server = struct {
             },
         };
 
-        try self.content.resize(0);
-        try std.json.stringify(response, .{}, self.content.writer());
+        try self.content.resize(self.a, 0);
+
+        var acc = std.Io.Writer.Allocating.fromArrayList(self.a, &self.content);
+        defer acc.deinit();
+
+        try std.json.Stringify.value(response, .{}, &acc.writer);
+
         if (self.log) |log|
             try log.print("[Response]({s})\n", .{self.content.items});
 
@@ -87,29 +90,34 @@ pub const Server = struct {
     fn readHeader(self: *Self) !void {
         self.content_length = null;
 
-        try self.content.resize(1024);
-        if (try self.in.readUntilDelimiterOrEof(self.content.items, '\r')) |line| {
-            if (self.log) |log|
-                try log.print("[Line](content:{s})\n", .{line});
+        try self.content.resize(self.a, 0);
+        var acc = std.Io.Writer.Allocating.fromArrayList(self.a, &self.content);
+        defer acc.deinit();
 
-            var str = strng.Strange{ .content = line };
+        const size = try self.in.streamDelimiter(&acc.writer, '\r');
+        std.debug.assert(size == self.content.items.len);
+        const line = self.content.items;
 
-            if (str.popStr("Content-Length:")) {
-                _ = str.popMany(' ');
-                self.content_length = str.popInt(usize) orelse return Error.CouldNotReadContentLength;
-            } else return Error.UnexpectedKey;
+        if (self.log) |log|
+            try log.print("[Line](size:{s})\n", .{line});
 
-            // Read the remaining "\n\r\n"
-            try self.content.resize(3);
-            if (try self.in.readAll(self.content.items) != 3) return Error.CouldNotReadEOH;
-            if (!std.mem.eql(u8, self.content.items, "\n\r\n")) return Error.CouldNotReadEOH;
-        }
+        var str = strng.Strange{ .content = line };
+
+        if (str.popStr("Content-Length:")) {
+            _ = str.popMany(' ');
+            self.content_length = str.popInt(usize) orelse return Error.CouldNotReadContentLength;
+        } else return Error.UnexpectedKey;
+
+        // Read the remaining "\n\r\n"
+        var buf: [3]u8 = undefined;
+        try self.in.readSliceAll(&buf);
+        if (!std.mem.eql(u8, &buf, "\n\r\n")) return Error.CouldNotReadEOH;
     }
 
     fn readContent(self: *Self) !void {
         if (self.content_length) |cl| {
-            try self.content.resize(cl);
-            if (try self.in.readAll(self.content.items) != cl) return Error.CouldNotReadData;
+            try self.content.resize(self.a, cl);
+            try self.in.readSliceAll(self.content.items);
         }
     }
 };
@@ -355,10 +363,12 @@ test "lsp" {
             .result = &result,
         };
 
-        var buffer = std.ArrayList(u8).init(ut.allocator);
-        defer buffer.deinit();
+        var out = std.Io.Writer.Allocating.init(ut.allocator);
+        defer out.deinit();
 
-        try std.json.stringify(response, .{}, buffer.writer());
-        std.debug.print("response {s}\n", .{buffer.items});
+        try std.json.Stringify.value(response, .{}, &out.writer);
+        const str = try out.toOwnedSlice();
+        defer ut.allocator.free(str);
+        std.debug.print("response {s}\n", .{str});
     }
 }

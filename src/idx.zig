@@ -77,10 +77,10 @@ test "index.Range" {
     try ut.expectEqual(false, r.empty());
     try ut.expectEqual(3, r.size());
 
-    var ixs = std.ArrayList(usize).init(ut.allocator);
-    defer ixs.deinit();
+    var ixs = std.ArrayList(usize){};
+    defer ixs.deinit(ut.allocator);
     for (r.begin..r.end) |ix| {
-        try ixs.append(ix);
+        try ixs.append(ut.allocator, ix);
     }
     try ut.expectEqualSlices(usize, &[_]usize{ 1, 2, 3 }, ixs.items);
 }

@@ -22,18 +22,18 @@ pub fn Tree(Data: type) type {
         };
         const Nodes = std.ArrayList(Node);
 
-        nodes: Nodes,
-        root_ids: Ids,
         a: std.mem.Allocator,
+        nodes: Nodes = .{},
+        root_ids: Ids = .{},
 
         pub fn init(a: std.mem.Allocator) Self {
-            return Self{ .nodes = Nodes.init(a), .root_ids = Ids.init(a), .a = a };
+            return Self{ .a = a };
         }
         pub fn deinit(self: *Self) void {
             for (self.nodes.items) |*node|
-                node.child_ids.deinit();
-            self.nodes.deinit();
-            self.root_ids.deinit();
+                node.child_ids.deinit(self.a);
+            self.nodes.deinit(self.a);
+            self.root_ids.deinit(self.a);
         }
 
         pub fn get(self: *Self, id: Id) !*Data {
@@ -72,10 +72,10 @@ pub fn Tree(Data: type) type {
             }
 
             const child_id = self.nodes.items.len;
-            try ids.append(child_id);
+            try ids.append(self.a, child_id);
 
-            const child = try self.nodes.addOne();
-            child.child_ids = Ids.init(self.a);
+            const child = try self.nodes.addOne(self.a);
+            child.child_ids = Ids{};
             child.parent_id = maybe_parent_id;
 
             return Entry{ .id = child_id, .data = &child.data };

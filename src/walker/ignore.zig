@@ -8,22 +8,23 @@ pub const Ignore = struct {
     const Globs = std.ArrayList(glb.Glob);
     const Strings = std.ArrayList([]const u8);
 
-    globs: Globs,
-    antiglobs: Globs,
+    a: std.mem.Allocator,
+    globs: Globs = .{},
+    antiglobs: Globs = .{},
 
-    pub fn init(ma: std.mem.Allocator) Ignore {
-        return Ignore{ .globs = Globs.init(ma), .antiglobs = Globs.init(ma) };
+    pub fn init(a: std.mem.Allocator) Ignore {
+        return Ignore{ .a = a };
     }
 
     pub fn deinit(self: *Self) void {
         for ([_]*Globs{ &self.globs, &self.antiglobs }) |globs| {
             for (globs.items) |*item|
                 item.deinit();
-            globs.deinit();
+            globs.deinit(self.a);
         }
     }
 
-    pub fn initFromFile(dir: std.fs.Dir, name: []const u8, ma: std.mem.Allocator) !Self {
+    pub fn initFromFile(dir: std.fs.Dir, name: []const u8, a: std.mem.Allocator) !Self {
         const file = try dir.openFile(name, .{});
         defer file.close();
 
@@ -31,14 +32,14 @@ pub const Ignore = struct {
 
         const r = file.reader();
 
-        const content = try r.readAllAlloc(ma, stat.size);
-        defer ma.free(content);
+        const content = try r.readAllAlloc(a, stat.size);
+        defer a.free(content);
 
-        return initFromContent(content, ma);
+        return initFromContent(content, a);
     }
 
-    pub fn initFromContent(content: []const u8, ma: std.mem.Allocator) !Self {
-        var self = Self.init(ma);
+    pub fn initFromContent(content: []const u8, a: std.mem.Allocator) !Self {
+        var self = Self.init(a);
         errdefer self.deinit();
 
         var strange_content = strng.Strange{ .content = content };
@@ -70,7 +71,7 @@ pub const Ignore = struct {
             if (strange_line.back() == '/')
                 config.back = "**";
 
-            try globs.append(try glb.Glob.init(config, ma));
+            try globs.append(a, try glb.Glob.init(config, a));
         }
 
         return self;
@@ -82,7 +83,7 @@ pub const Ignore = struct {
         const my_ext = try std.mem.concat(fba, u8, &[_][]const u8{ ".", ext });
 
         const glob_config = glb.Config{ .pattern = my_ext, .front = "**" };
-        try self.globs.append(try glb.Glob.init(glob_config, self.globs.allocator));
+        try self.globs.append(self.a, try glb.Glob.init(glob_config, self.globs.allocator));
     }
 
     pub fn match(self: Self, fp: []const u8) bool {

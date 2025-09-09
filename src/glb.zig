@@ -78,8 +78,8 @@ pub const Glob = struct {
     const Self = @This();
     const Parts = std.ArrayList(Part);
 
-    ma: std.mem.Allocator,
-    parts: Parts,
+    a: std.mem.Allocator,
+    parts: Parts = .{},
     config: ?*Config = null,
 
     pub fn init(config: Config, ma: std.mem.Allocator) !Glob {
@@ -96,11 +96,11 @@ pub const Glob = struct {
     }
 
     // Assumes config outlives self
-    pub fn initUnmanaged(config: Config, ma: std.mem.Allocator) !Glob {
+    pub fn initUnmanaged(config: Config, a: std.mem.Allocator) !Glob {
         if (config.pattern.len == 0)
             return Error.EmptyPattern;
 
-        var glob = Glob{ .ma = ma, .parts = Parts.init(ma) };
+        var glob = Glob{ .a = a };
 
         var strange = strng.Strange{ .content = config.pattern };
 
@@ -109,7 +109,7 @@ pub const Glob = struct {
         while (true) {
             if (strange.popTo('*')) |str| {
                 if (str.len > 0) {
-                    try glob.parts.append(Part{ .wildcard = wildcard, .str = str });
+                    try glob.parts.append(a, Part{ .wildcard = wildcard, .str = str });
                 }
 
                 // We found a single '*', check for more '*' to decide if we can match path separators as well
@@ -130,11 +130,11 @@ pub const Glob = struct {
                     wildcard = Wildcard.max(wildcard, new_wildcard);
                 }
             } else if (strange.popAll()) |str| {
-                try glob.parts.append(Part{ .wildcard = wildcard, .str = str });
+                try glob.parts.append(a, Part{ .wildcard = wildcard, .str = str });
 
                 wildcard = try Wildcard.fromStr(config.back);
             } else {
-                try glob.parts.append(Part{ .wildcard = wildcard, .str = "" });
+                try glob.parts.append(a, Part{ .wildcard = wildcard, .str = "" });
                 break;
             }
         }
@@ -143,12 +143,12 @@ pub const Glob = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        self.parts.deinit();
+        self.parts.deinit(self.a);
         if (self.config) |el| {
-            self.ma.free(el.pattern);
-            self.ma.free(el.front);
-            self.ma.free(el.back);
-            self.ma.destroy(el);
+            self.a.free(el.pattern);
+            self.a.free(el.front);
+            self.a.free(el.back);
+            self.a.destroy(el);
         }
     }
 

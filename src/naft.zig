@@ -7,15 +7,15 @@ const Error = error{
 pub const Node = struct {
     const Self = @This();
 
-    out: ?std.fs.File.Writer,
+    io: ?*std.Io.Writer,
     level: usize,
     // Indicates if this Node already contains nested elements (Text, Node). This is used to add a closing '}' upon deinit().
     has_block: bool = false,
     // Indicates if this Node already contains a Node. This is used for deciding newlines etc.
     has_node: bool = false,
 
-    pub fn init(out: ?std.fs.File.Writer) Node {
-        return Node{ .out = out, .level = 0, .has_block = true, .has_node = true };
+    pub fn init(io: ?*std.Io.Writer) Node {
+        return Node{ .io = io, .level = 0, .has_block = true, .has_node = true };
     }
     pub fn deinit(self: Self) void {
         if (self.level == 0)
@@ -33,7 +33,7 @@ pub const Node = struct {
 
     pub fn node(self: *Self, name: []const u8) Node {
         self.ensure_block(true);
-        const n = Node{ .out = self.out, .level = self.level + 1 };
+        const n = Node{ .io = self.io, .level = self.level + 1 };
         n.indent();
         n.print("[{s}]", .{name});
         return n;
@@ -91,8 +91,8 @@ pub const Node = struct {
     }
 
     fn print(self: Self, comptime fmt: []const u8, args: anytype) void {
-        if (self.out) |out| {
-            out.print(fmt, args) catch {};
+        if (self.io) |io| {
+            io.print(fmt, args) catch {};
         } else {
             std.debug.print(fmt, args);
         }
