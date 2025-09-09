@@ -108,7 +108,7 @@ pub fn TreeReader(In: anytype) type {
         }
 
         // Returns false if there is a Id mismatch
-        pub fn readComposite(self: *Self, obj: anytype, id: Id, ctx: anytype) !bool {
+        pub fn readComposite(self: *Self, obj: anytype, id: Id) !bool {
             {
                 const header = try self.readHeader();
 
@@ -123,7 +123,7 @@ pub fn TreeReader(In: anytype) type {
                 self.header = null;
             }
 
-            try obj.readComposite(self, ctx);
+            try obj.readComposite(self);
 
             {
                 const header = try self.readHeader();
