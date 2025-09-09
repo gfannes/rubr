@@ -18,7 +18,6 @@ const util = @import("util.zig");
 pub const Error = error{
     TooLarge,
     ExpectedId,
-    EndOfStream,
 };
 
 // An Id identifies the type/field that is being sedes within some parent context
@@ -173,8 +172,7 @@ pub fn readUInt(T: type, size: usize, sr: anytype) !T {
         return Error.TooLarge;
     var buffer: [@sizeOf(T)]u8 = undefined;
     const slice = buffer[0..size];
-    if (try sr.readAll(slice) != size)
-        return Error.EndOfStream;
+    try sr.readSliceAll(slice);
     var u: T = 0;
     for (slice) |byte| {
         u <<= 8;
@@ -205,9 +203,7 @@ pub fn readVLC(T: type, sr: anytype) !T {
     const max_byte_count = (@bitSizeOf(@TypeOf(uu)) + 6) / 7;
     for (0..max_byte_count) |ix| {
         var ary: [1]u8 = undefined;
-        const count = try sr.readAll(&ary);
-        if (count == 0)
-            return Error.EndOfStream;
+        try sr.readSliceAll(&ary);
         const byte = ary[0];
         const data: u7 = @truncate(byte);
         uu <<= 7;
@@ -242,8 +238,7 @@ const String = struct {
     }
     fn readLeaf(self: *Self, size: usize, sr: anytype, a: std.mem.Allocator) !void {
         const slice = try a.alloc(u8, size);
-        if (try sr.readAll(slice) != size)
-            return Error.EndOfStream;
+        try sr.readSliceAll(slice);
         self.str = slice;
     }
 };
@@ -268,7 +263,11 @@ test "leaf" {
         const file = try std.fs.cwd().createFile(filename, .{});
         defer file.close();
 
-        const tw = TreeWriter(std.fs.File){ .out = file };
+        var buffer: [1024]u8 = undefined;
+        var writer = file.writer(&buffer);
+        defer writer.interface.flush() catch {};
+
+        const tw = TreeWriter(*std.Io.Writer){ .out = &writer.interface };
         try tw.writeLeaf(@as(u32, 1234), 3);
         try tw.writeLeaf("string", 3);
     }
@@ -278,7 +277,10 @@ test "leaf" {
         const file = try std.fs.cwd().openFile(filename, .{});
         defer file.close();
 
-        var tr = TreeReader(std.fs.File){ .in = file };
+        var buffer: [1024]u8 = undefined;
+        var reader = file.reader(&buffer);
+
+        var tr = TreeReader(*std.Io.Reader){ .in = &reader.interface };
 
         var uint = UInt{};
         try ut.expect(try tr.readLeaf(&uint, 3, {}));
@@ -295,7 +297,10 @@ test "leaf" {
         const file = try std.fs.cwd().openFile(filename, .{});
         defer file.close();
 
-        var tr = TreeReader(std.fs.File){ .in = file };
+        var buffer: [1024]u8 = undefined;
+        var reader = file.reader(&buffer);
+
+        var tr = TreeReader(*std.Io.Reader){ .in = &reader.interface };
 
         var u: u32 = undefined;
         try ut.expect(try tr.readLeaf(&u, 3, {}));
@@ -323,7 +328,11 @@ test "composite" {
     const file = try std.fs.cwd().createFile("composite.dat", .{});
     defer file.close();
 
-    const tw = TreeWriter(std.fs.File){ .out = file };
+    var buffer: [1024]u8 = undefined;
+    var writer = file.writer(&buffer);
+    defer writer.interface.flush() catch {};
+
+    const tw = TreeWriter(*std.Io.Writer){ .out = &writer.interface };
 
     const comp = Composite{};
     try tw.writeComposite(comp, 2);

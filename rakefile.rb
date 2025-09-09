@@ -11,7 +11,7 @@ task :ut, %i[filter] do |_task, args|
   sh 'clear'
 
   filter = (args[:filter] || '').split(':').map { |e| "-Dtest-filter=#{e}" } * ' '
-  sh "zig build test #{filter}"
+  sh "zig build test #{filter} -freference-trace=10"
 
   mode = :release
   # mode = :debug
