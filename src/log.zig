@@ -75,15 +75,16 @@ pub const Log = struct {
 
     pub fn print(self: Self, comptime fmt: []const u8, args: anytype) !void {
         try self._io.print(fmt, args);
+        try self._io.flush();
     }
     pub fn info(self: Self, comptime fmt: []const u8, args: anytype) !void {
-        try self._io.print("Info: " ++ fmt, args);
+        try self.print("Info: " ++ fmt, args);
     }
     pub fn warning(self: Self, comptime fmt: []const u8, args: anytype) !void {
-        try self._io.print("Warning: " ++ fmt, args);
+        try self.print("Warning: " ++ fmt, args);
     }
     pub fn err(self: Self, comptime fmt: []const u8, args: anytype) !void {
-        try self._io.print("Error: " ++ fmt, args);
+        try self.print("Error: " ++ fmt, args);
     }
 
     pub fn level(self: Self, lvl: usize) ?*std.Io.Writer {
