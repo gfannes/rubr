@@ -93,6 +93,7 @@ pub const Node = struct {
     fn print(self: Self, comptime fmt: []const u8, args: anytype) void {
         if (self.io) |io| {
             io.print(fmt, args) catch {};
+            io.flush() catch {};
         } else {
             std.debug.print(fmt, args);
         }
