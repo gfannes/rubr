@@ -49,8 +49,10 @@ pub const Server = struct {
         try self.readHeader();
         try self.readContent();
 
-        if (self.log) |log|
+        if (self.log) |log| {
             try log.print("[Request]({s})\n", .{self.content.items});
+            try log.flush();
+        }
         self.request = (try std.json.parseFromSlice(dto.Request, self.aa.allocator(), self.content.items, .{})).value;
 
         return &(self.request orelse unreachable);
@@ -81,25 +83,30 @@ pub const Server = struct {
 
         try std.json.Stringify.value(response, .{}, &acc.writer);
 
-        if (self.log) |log|
+        self.content = acc.toArrayList();
+
+        if (self.log) |log| {
             try log.print("[Response]({s})\n", .{self.content.items});
+            try log.flush();
+        }
 
         try self.out.print("Content-Length: {}\r\n\r\n{s}", .{ self.content.items.len, self.content.items });
+        try self.out.flush();
     }
 
     fn readHeader(self: *Self) !void {
         self.content_length = null;
 
-        try self.content.resize(self.a, 0);
-        var acc = std.Io.Writer.Allocating.fromArrayList(self.a, &self.content);
-        defer acc.deinit();
+        var buffer: [1024]u8 = undefined;
+        var w = std.Io.Writer.fixed(&buffer);
 
-        const size = try self.in.streamDelimiter(&acc.writer, '\r');
-        std.debug.assert(size == self.content.items.len);
-        const line = self.content.items;
+        const size = try self.in.streamDelimiter(&w, '\r');
 
-        if (self.log) |log|
-            try log.print("[Line](size:{s})\n", .{line});
+        const line = buffer[0..size];
+        if (self.log) |log| {
+            try log.print("[Line](size:{})(content:{s})\n", .{ size, line });
+            try log.flush();
+        }
 
         var str = strng.Strange{ .content = line };
 
@@ -108,10 +115,10 @@ pub const Server = struct {
             self.content_length = str.popInt(usize) orelse return Error.CouldNotReadContentLength;
         } else return Error.UnexpectedKey;
 
-        // Read the remaining "\n\r\n"
-        var buf: [3]u8 = undefined;
-        try self.in.readSliceAll(&buf);
-        if (!std.mem.eql(u8, &buf, "\n\r\n")) return Error.CouldNotReadEOH;
+        // Read the remaining "\r\n\r\n"
+        const slice = buffer[0..4];
+        try self.in.readSliceAll(slice);
+        if (!std.mem.eql(u8, slice, "\r\n\r\n")) return Error.CouldNotReadEOH;
     }
 
     fn readContent(self: *Self) !void {
@@ -157,10 +164,13 @@ pub const Client = struct {
     pub fn send(self: *Self, request: dto.Request) !void {
         try self.content.resize(0);
         try std.json.stringify(request, .{}, self.content.writer());
-        if (self.log) |log|
+        if (self.log) |log| {
             try log.print("[Request]({s})\n", .{self.content.items});
+            try log.flush();
+        }
 
         try self.out.print("Content-Length: {}\r\n\r\n{s}", .{ self.content.items.len, self.content.items });
+        try self.out.flush();
     }
 
     pub fn receive(self: *Self, T: type) !*const T {
@@ -170,8 +180,10 @@ pub const Client = struct {
         try self.readHeader();
         try self.readContent();
 
-        if (self.log) |log|
+        if (self.log) |log| {
             try log.print("[Response]({s})\n", .{self.content.items});
+            try log.flush();
+        }
 
         const resp = self.response_(T);
         resp.* = (try std.json.parseFromSlice(T, self.aa.allocator(), self.content.items, .{})).value;
