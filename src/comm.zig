@@ -61,6 +61,8 @@ pub const TreeWriter = struct {
         try writeVLC(id, self.out);
         try obj.writeComposite(self);
         try writeVLC(close, self.out);
+
+        // &perf: maybe it is better to leave this to the caller for ultimate performance?
         try self.out.flush();
     }
 };
