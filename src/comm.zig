@@ -231,7 +231,6 @@ const Counter = struct {
     }
 
     fn drain(w: *std.Io.Writer, data: []const []const u8, _: usize) std.Io.Writer.Error!usize {
-        std.debug.print("drain {} {} {s} {*}\n", .{ data.len, data[0].len, data[0], data[0].ptr });
         const self: *Counter = @fieldParentPtr("interface", w);
         self.size += data[0].len;
         return data[0].len;
