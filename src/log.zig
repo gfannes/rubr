@@ -5,6 +5,10 @@ pub const Error = error{FilePathTooLong};
 // &improv: Support both buffered and non-buffered logging
 pub const Log = struct {
     const Self = @This();
+    const Autoclean = struct {
+        buffer: [std.fs.max_path_bytes]u8 = undefined,
+        filepath: []const u8 = &.{},
+    };
 
     _do_close: bool = false,
     _file: std.fs.File = std.fs.File.stdout(),
@@ -16,15 +20,25 @@ pub const Log = struct {
 
     _lvl: usize = 0,
 
+    _autoclean: ?Autoclean = null,
+
     pub fn init(self: *Self) void {
         self.initWriter();
     }
     pub fn deinit(self: *Self) void {
+        std.debug.print("Log.deinit()\n", .{});
         self.closeWriter() catch {};
+        if (self._autoclean) |autoclean| {
+            std.debug.print("Removing '{s}'\n", .{autoclean.filepath});
+            std.fs.deleteFileAbsolute(autoclean.filepath) catch {};
+        }
     }
 
     // Any '%' in 'filepath' will be replaced with the process id
-    pub fn toFile(self: *Self, filepath: []const u8) !void {
+    const Options = struct {
+        autoclean: bool = false,
+    };
+    pub fn toFile(self: *Self, filepath: []const u8, options: Options) !void {
         try self.closeWriter();
 
         var pct_count: usize = 0;
@@ -56,10 +70,20 @@ pub const Log = struct {
             break :blk filepath;
         };
 
-        if (std.fs.path.isAbsolute(filepath_clean))
-            self._file = try std.fs.createFileAbsolute(filepath_clean, .{})
-        else
+        if (std.fs.path.isAbsolute(filepath_clean)) {
+            self._file = try std.fs.createFileAbsolute(filepath_clean, .{});
+            if (options.autoclean) {
+                self._autoclean = undefined;
+                const fp = self._autoclean.?.buffer[0..filepath_clean.len];
+                std.mem.copyForwards(u8, fp, filepath_clean);
+                if (self._autoclean) |*autoclean| {
+                    autoclean.filepath = fp;
+                    std.debug.print("Setup autoclean for '{s}'\n", .{autoclean.filepath});
+                }
+            }
+        } else {
             self._file = try std.fs.cwd().createFile(filepath_clean, .{});
+        }
         self._do_close = true;
 
         self.initWriter();
@@ -114,7 +138,7 @@ test "log" {
     log.init();
     defer log.deinit();
 
-    try log.toFile("test.log");
+    try log.toFile("test.log", .{});
     try log.print("Started log\n", .{});
 
     log.setLevel(2);
