@@ -34,6 +34,7 @@ pub const Request = struct {
 // &todo: Add support for 'error'
 pub fn Response(Result: type) type {
     return struct {
+        jsonrpc: String = "2.0",
         id: i32,
         result: ?*const Result,
     };
@@ -45,7 +46,9 @@ pub const InitializeResult = struct {
 };
 
 pub const ReferenceContext = struct {
-    includeDeclaration: ?bool,
+    includeDeclaration: ?bool = null,
+    triggerCharacter: ?String = null,
+    triggerKind: ?u32 = null,
 };
 
 pub const Position = struct {
@@ -100,6 +103,11 @@ pub const ClientInfo = struct {
     version: String,
 };
 
+pub const CompletionItem = struct {
+    label: String,
+    kind: u32,
+};
+
 pub const ClientCapabilities = struct {
     pub const General = struct {
         positionEncodings: []String,
@@ -135,7 +143,7 @@ pub const ClientCapabilities = struct {
             pub const CompletionItemKind = struct {
                 // valueSet: []String = &.{},
             };
-            completionItem: CompletionItem,
+            completionItem: Completion.CompletionItem,
             completionItemKind: CompletionItemKind,
         };
         pub const Formatting = struct {
@@ -238,8 +246,12 @@ pub const ServerCapabilities = struct {
         openClose: ?bool = true,
         change: ?u32 = 2,
     };
+    pub const CompletionOptions = struct {
+        triggerCharacters: ?[]const String = null,
+    };
 
     textDocumentSync: ?TextDocumentSyncOptions = null,
+    completionProvider: ?CompletionOptions = null,
     documentSymbolProvider: ?bool = null,
     workspaceSymbolProvider: ?bool = null,
     definitionProvider: ?bool = null,
