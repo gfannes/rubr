@@ -47,6 +47,10 @@ pub fn Ix(T: type) type {
         pub fn cptr(self: Self, slice: []const T) *const T {
             return &slice[self.ix];
         }
+
+        pub fn format(self: Self, io: *std.Io.Writer) !void {
+            try io.print("{}", .{self.ix});
+        }
     };
 }
 

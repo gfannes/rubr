@@ -40,14 +40,17 @@ pub const Node = struct {
     }
 
     pub fn attr(self: *Self, key: []const u8, value: anytype) void {
+        const T = @TypeOf(value);
+
         if (self.has_block) {
             std.debug.print("Attributes are not allowed anymore: block was already started\n", .{});
             return;
         }
 
-        const str = switch (@typeInfo(@TypeOf(value))) {
+        const str = switch (@typeInfo(T)) {
             // We assume that any .pointer can be printed as a string
             .pointer => "s",
+            .@"struct" => if (@hasDecl(T, "format")) "f" else "any",
             else => "any",
         };
 
