@@ -23,7 +23,7 @@ pub fn isUIntType(T: type) ?u16 {
 test "util.isUIntType" {
     const ut = std.testing;
     try ut.expectEqual(4, isUIntType(u4));
-    try ut.expectEqual(@sizeOf(usize)*8, isUIntType(usize));
+    try ut.expectEqual(@sizeOf(usize) * 8, isUIntType(usize));
 }
 
 pub fn isIntType(T: type) ?u16 {
@@ -60,4 +60,17 @@ pub fn isEven(v: anytype) bool {
 }
 pub fn isOdd(v: anytype) bool {
     return v % 2 == 1;
+}
+
+pub fn arrayLenOf(T: type) usize {
+    return switch (@typeInfo(T)) {
+        .array => |a| a.len,
+        else => @compileError("Expected T to be an array"),
+    };
+}
+
+test "util.arrayLenOf" {
+    const ut = std.testing;
+
+    try ut.expectEqual(3, arrayLenOf([3]u8));
 }
