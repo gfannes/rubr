@@ -14,7 +14,7 @@ task :ut, %i[filter] do |_task, args|
   sh "zig build test #{filter} -freference-trace=10"
 
   mode = :release
-  # mode = :debug
+  mode = :debug
   sh("xmake f -m #{mode}")
   sh('xmake build -v rubr_ut')
   sh('xmake run rubr_ut')
