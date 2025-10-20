@@ -14,11 +14,23 @@ pub const Pipe = struct {
         }
 
         fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) !usize {
-            _ = w;
-            _ = data;
-            _ = splat;
+            if (w.end > 0) {
+                std.debug.print("buffer: {s}\n", .{w.buffer[0..w.end]});
+                w.end = 0;
+            }
 
-            return 0;
+            var eaten: usize = 0;
+
+            for (data, 0..) |part, ix0| {
+                const ix1 = ix0 + 1;
+                const my_splat = if (ix1 == data.len) splat else 1;
+                for (0..my_splat) |splat_ix0| {
+                    eaten += part.len;
+                    std.debug.print("part {d}-{d}: {s}\n", .{ ix0, splat_ix0, part });
+                }
+            }
+
+            return eaten;
         }
     };
     pub const Reader = struct {
@@ -48,7 +60,11 @@ test "itc.Pipe" {
 
     var w_buf: [4]u8 = undefined;
     var writer = pipe.writer(&w_buf);
-    try writer.interface.print("writing data", .{});
+    try writer.interface.print("ab", .{});
+    try writer.interface.print("cd", .{});
+    try writer.interface.print("0123456789", .{});
+    try writer.interface.print("cd", .{});
+    _ = try writer.interface.splatByte('z', 42);
+    try writer.interface.flush();
     std.debug.print("Vlotjes\n", .{});
-    try std.testing.expect(false);
 }

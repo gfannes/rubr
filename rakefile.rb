@@ -13,11 +13,11 @@ task :ut, %i[filter] do |_task, args|
   filter = (args[:filter] || '').split(':').map { |e| "-Dtest-filter=#{e}" } * ' '
   sh "zig build test #{filter} -freference-trace=10"
 
-  mode = :release
-  mode = :debug
-  sh("xmake f -m #{mode}")
-  sh('xmake build -v rubr_ut')
-  sh('xmake run rubr_ut')
+  # mode = :release
+  # # mode = :debug
+  # sh("xmake f -m #{mode}")
+  # sh('xmake build -v rubr_ut')
+  # sh('xmake run rubr_ut')
 end
 
 desc('Clean')
