@@ -19,7 +19,7 @@ pub const tree = @import("tree.zig");
 pub const algo = @import("algo.zig");
 pub const util = @import("util.zig");
 pub const comm = @import("comm.zig");
-pub const itc = @import("itc.zig");
+pub const pipe = @import("pipe.zig");
 
 test {
     ut.refAllDecls(@This());
@@ -41,5 +41,5 @@ test {
     ut.refAllDecls(algo);
     ut.refAllDecls(util);
     ut.refAllDecls(comm);
-    ut.refAllDecls(itc);
+    ut.refAllDecls(pipe);
 }
