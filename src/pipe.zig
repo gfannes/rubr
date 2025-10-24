@@ -4,7 +4,6 @@ pub const Pipe = struct {
     const Self = @This();
     const reader_vtable: std.Io.Reader.VTable = .{
         .stream = stream,
-        .rebase = rebase,
     };
     const writer_vtable: std.Io.Writer.VTable = .{
         .drain = drain,
@@ -13,113 +12,103 @@ pub const Pipe = struct {
     reader: std.Io.Reader,
     writer: std.Io.Writer,
 
-    pub fn init(buffer: []u8) Self {
+    pub fn init(rb: []u8, wb: []u8) Self {
         return Self{ .reader = .{
             .vtable = &reader_vtable,
-            .buffer = buffer,
+            .buffer = rb,
             .seek = 0,
             .end = 0,
         }, .writer = .{
             .vtable = &writer_vtable,
-            .buffer = buffer,
+            .buffer = wb,
         } };
     }
     pub fn deinit(self: *Self) void {
         _ = self;
     }
 
-    fn stream(r: *std.Io.Reader, _: *std.Io.Writer, limit: std.Io.Limit) !usize {
-        std.debug.print("r seek {} end {} limit {?}\n", .{ r.seek, r.end, limit.toInt() });
-
-        const pipe: *Pipe = @fieldParentPtr("reader", r);
-        std.debug.print("before {f}", .{pipe.*});
-
-        if (pipe.writer.end > r.end) {
-            // There was data written into the pipe that we can return.
-            r.end = pipe.writer.end;
-            std.debug.print("after {f}", .{pipe.*});
-            return 0;
-        }
-
-        // &todo: wait for more data
-
-        return error.ReadFailed;
-    }
-
-    fn rebase(r: *std.Io.Reader, capacity: usize) !void {
-        _ = capacity;
-
-        if (r.seek > 0) {
-            const pipe: *Pipe = @fieldParentPtr("reader", r);
-            std.debug.print("rebase() before {f}", .{pipe});
-            pipe.rebase_();
-            std.debug.print("rebase() after {f}", .{pipe});
-        }
-    }
-    fn rebase_(self: *Self) void {
-        const src = self.reader.buffer[self.reader.seek..self.writer.end];
-        @memmove(self.reader.buffer[0..src.len], src);
-
-        self.reader.end -= self.reader.seek;
-        self.writer.end -= self.reader.seek;
-        self.reader.seek = 0;
-    }
-
-    fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) !usize {
-        const pipe: *Pipe = @fieldParentPtr("writer", w);
-
-        std.debug.print("drain() before {f}", .{pipe});
-
-        pipe.rebase_();
-
-        var eaten: usize = 0;
-
-        var room = w.buffer.len - w.end;
-        for (data[0 .. data.len - 1]) |part| {
-            std.debug.print("    part {}\n", .{part.len});
-            const n = @min(room, part.len);
-            @memcpy(w.buffer[w.end .. w.end + n], part[0..n]);
-            w.end += n;
-            room -= n;
-            eaten += n;
-            if (room == 0)
-                break;
-        }
-
-        for (0..splat) |_| {
-            const part = data[data.len - 1];
-            std.debug.print("    PART {}\n", .{part.len});
-            const n = @min(room, part.len);
-            @memcpy(w.buffer[w.end .. w.end + n], part[0..n]);
-            w.end += n;
-            room -= n;
-            eaten += n;
-            if (room == 0)
-                break;
-        }
-
-        std.debug.print("drain() after {f}", .{pipe});
-
-        return eaten;
-    }
-
     pub fn format(self: Self, w: *std.Io.Writer) !void {
         try w.print(
             \\[Pipe]{{
-            \\    [Writer](end:{})
-            \\    [Reader](seek:{})(end:{})
+            \\    [Writer](end:{})({s})
+            \\    [Reader](seek:{})(end:{})({s})
             \\}}
             \\
-        , .{ self.writer.end, self.reader.seek, self.reader.end });
+        , .{ self.writer.end, self.writer.buffer[0..self.writer.end], self.reader.seek, self.reader.end, self.reader.buffer[self.reader.seek..self.reader.end] });
+    }
+
+    fn stream(r: *std.Io.Reader, _: *std.Io.Writer, limit: std.Io.Limit) !usize {
+        _ = limit;
+
+        const pipe: *Pipe = @fieldParentPtr("reader", r);
+
+        std.debug.print("stream()> {f}\n", .{pipe.*});
+        defer std.debug.print("stream(). {f}\n", .{pipe.*});
+
+        _ = pipe.move_data_();
+
+        return 0;
+    }
+
+    fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) !usize {
+        _ = data;
+        _ = splat;
+
+        const pipe: *Pipe = @fieldParentPtr("writer", w);
+
+        std.debug.print("drain()> {f}\n", .{pipe.*});
+        defer std.debug.print("drain(). {f}\n", .{pipe.*});
+
+        _ = pipe.move_data_();
+
+        return 0;
+    }
+
+    fn move_data_(pipe: *Self) usize {
+        if (pipe.writer.end == 0)
+            return 0;
+        // We have data in the write buffer that we can move into the read buffer
+
+        var r = &pipe.reader;
+        var w = &pipe.writer;
+        const re = r.end;
+        const we = w.end;
+        const count = @min(r.buffer.len - re, we);
+
+        if (count == 0)
+            return 0;
+        // We can move 'count' bytes from writer to reader=
+
+        std.debug.print("move_data_()> count {}\n", .{count});
+        defer std.debug.print("move_data_().\n", .{});
+
+        const src = w.buffer[0..count];
+        const dst = r.buffer[re .. re + count];
+        std.debug.print("src {s}\n", .{src});
+        @memcpy(dst, src);
+        std.debug.print("dst {s}\n", .{dst});
+
+        r.end += count;
+
+        if (count == we) {
+            w.end = 0;
+        } else {
+            const stay = we - count;
+            @memmove(w.buffer[0..stay], w.buffer[count..we]);
+            w.end = stay;
+        }
+
+        return count;
     }
 };
 
 test "pipe.Pipe" {
     const ut = std.testing;
 
-    var buffer: [4]u8 = undefined;
+    var rb: [4]u8 = undefined;
+    var wb: [4]u8 = undefined;
 
-    var pipe: Pipe = .init(&buffer);
+    var pipe: Pipe = .init(&rb, &wb);
     defer pipe.deinit();
 
     try pipe.writer.print("ab", .{});
