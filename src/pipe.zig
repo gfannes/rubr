@@ -14,6 +14,17 @@ pub const Pipe = struct {
         len: usize = 0,
         mutex: std.Thread.Mutex = std.Thread.Mutex{},
 
+        fn first(i: @This()) []const u8 {
+            const len = @min(i.len, i.buffer.len - i.head);
+            return i.buffer[i.head .. i.head + len];
+        }
+        fn second(i: @This()) []const u8 {
+            const end = i.head + i.len;
+            if (end <= i.buffer.len)
+                return &.{};
+            const len = end - i.buffer.len;
+            return i.buffer[0..len];
+        }
         fn used(i: *Intern) []const []u8 {
             if (i.len == 0) {
                 // Buffer is empty
@@ -85,9 +96,9 @@ pub const Pipe = struct {
     pub fn format(self: Self, w: *std.Io.Writer) !void {
         try w.print(
             \\[Pipe]{{
-            \\    [Writer](end:{})({s})
-            \\    [Intern](head:{})(len:{})
-            \\    [Reader](seek:{})(end:{})({s})
+            \\    [Writer](end:{}){{{s}}}
+            \\    [Intern](head:{})(len:{}){{{s}{s}}}
+            \\    [Reader](seek:{})(end:{}){{{s}}}
             \\}}
             \\
         ,
@@ -97,6 +108,8 @@ pub const Pipe = struct {
 
                 self.intern.head,
                 self.intern.len,
+                self.intern.first(),
+                self.intern.second(),
 
                 self.reader.seek,
                 self.reader.end,
@@ -179,16 +192,17 @@ test "pipe.Pipe" {
     defer pipe.deinit();
 
     try pipe.writer.print("ab", .{});
-    std.debug.print("{f}", .{pipe});
     try pipe.writer.flush();
-    std.debug.print("{f}", .{pipe});
     try ut.expectEqual('a', try pipe.reader.takeByte());
-    // try ut.expectEqual('b', try pipe.reader.takeByte());
+    try ut.expectEqual('b', try pipe.reader.takeByte());
 
-    // try pipe.writer.print("cd", .{});
-    // try ut.expectEqual('c', try pipe.reader.takeByte());
-    // try ut.expectEqual('d', try pipe.reader.takeByte());
+    try pipe.writer.print("cd", .{});
+    try pipe.writer.flush();
+    try ut.expectEqual('c', try pipe.reader.takeByte());
+    try ut.expectEqual('d', try pipe.reader.takeByte());
 
-    // try pipe.writer.print("e", .{});
-    // try ut.expectEqual('e', try pipe.reader.takeByte());
+    try pipe.writer.print("e", .{});
+    try pipe.writer.flush();
+    try ut.expectEqual('e', try pipe.reader.takeByte());
+    std.debug.print("{f}", .{pipe});
 }
