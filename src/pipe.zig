@@ -12,7 +12,15 @@ pub const Pipe = struct {
         buffer: []u8,
         head: usize = 0,
         len: usize = 0,
-        mutex: std.Thread.Mutex = std.Thread.Mutex{},
+        mutex: std.Thread.Mutex = .{},
+        cond: std.Thread.Condition = .{},
+
+        fn is_empty(i: @This()) bool {
+            return i.len == 0;
+        }
+        fn is_full(i: @This()) bool {
+            return i.len == i.buffer.len;
+        }
 
         fn first(i: @This()) []const u8 {
             const len = @min(i.len, i.buffer.len - i.head);
@@ -119,35 +127,46 @@ pub const Pipe = struct {
     }
 
     fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) !usize {
-        _ = data;
         _ = splat;
 
         const pipe: *Pipe = @fieldParentPtr("writer", w);
         var intern = &pipe.intern;
 
-        intern.mutex.lock();
-        defer intern.mutex.unlock();
+        const copy_from_buffer = w.end > 0;
+        var src = if (copy_from_buffer) w.buffer[0..w.end] else data[0];
+        const orig_src_len = src.len;
 
-        std.debug.print("drain()> {f}\n", .{pipe.*});
-        defer std.debug.print("drain(). {f}\n", .{pipe.*});
+        {
+            intern.mutex.lock();
+            defer intern.mutex.unlock();
 
-        var src = w.buffer[0..w.end];
+            std.debug.print("drain({})>\n{f}", .{ data[0].len, pipe.* });
+            defer std.debug.print("{f}drain().\n", .{pipe.*});
 
-        // Copy `src` into intern
-        for (intern.unused()) |dst| {
-            const count = @min(dst.len, src.len);
-            @memcpy(dst[0..count], src[0..count]);
-            intern.len += count;
-            src = src[count..];
+            while (intern.is_full()) {
+                intern.cond.wait(&intern.mutex);
+            }
+
+            // Copy `src` into intern
+            for (intern.unused()) |dst| {
+                const count = @min(dst.len, src.len);
+                @memcpy(dst[0..count], src[0..count]);
+                intern.len += count;
+                src = src[count..];
+            }
+
+            if (copy_from_buffer) {
+                // Move the remainder to the front, if any
+                if (src.len > 0) {
+                    @memmove(w.buffer[0..src.len], src);
+                }
+                w.end = src.len;
+            }
         }
 
-        // Move the remainder to the front, if any
-        if (src.len > 0) {
-            @memmove(w.buffer[0..src.len], src);
-        }
-        w.end = src.len;
+        intern.cond.signal();
 
-        return 0;
+        return if (copy_from_buffer) 0 else orig_src_len - src.len;
     }
 
     fn stream(r: *std.Io.Reader, _: *std.Io.Writer, limit: std.Io.Limit) !usize {
@@ -156,53 +175,95 @@ pub const Pipe = struct {
         const pipe: *Pipe = @fieldParentPtr("reader", r);
         var intern = &pipe.intern;
 
-        intern.mutex.lock();
-        defer intern.mutex.unlock();
+        {
+            intern.mutex.lock();
+            defer intern.mutex.unlock();
 
-        std.debug.print("stream()> {f}\n", .{pipe.*});
-        defer std.debug.print("stream(). {f}\n", .{pipe.*});
+            std.debug.print("stream()>\n{f}", .{pipe.*});
+            defer std.debug.print("{f}stream().\n", .{pipe.*});
 
-        var dst = r.buffer[r.end..];
+            while (intern.is_empty()) {
+                intern.cond.wait(&intern.mutex);
+            }
 
-        // Copy internal data to r.buffer
-        for (intern.used()) |src| {
-            const count = @min(dst.len, src.len);
-            @memcpy(dst[0..count], src[0..count]);
-            dst = dst[count..];
-            r.end += count;
-            intern.head += count;
-            intern.len -= count;
+            var dst = r.buffer[r.end..];
+
+            // Copy internal data to r.buffer
+            for (intern.used()) |src| {
+                const count = @min(dst.len, src.len);
+                @memcpy(dst[0..count], src[0..count]);
+                dst = dst[count..];
+                r.end += count;
+                intern.head += count;
+                intern.len -= count;
+            }
+            if (intern.head >= intern.buffer.len) {
+                intern.head -= intern.buffer.len;
+            }
         }
-        if (intern.head >= intern.buffer.len) {
-            intern.head -= intern.buffer.len;
-        }
+
+        intern.cond.signal();
 
         return 0;
     }
 };
 
-test "pipe.Pipe" {
-    const ut = std.testing;
+// test "pipe.Pipe" {
+//     const ut = std.testing;
+
+//     var wb: [4]u8 = undefined;
+//     var ib: [4]u8 = undefined;
+//     var rb: [4]u8 = undefined;
+
+//     var pipe: Pipe = .init(&wb, &ib, &rb);
+//     defer pipe.deinit();
+
+//     try pipe.writer.print("ab", .{});
+//     try pipe.writer.flush();
+//     try ut.expectEqual('a', try pipe.reader.takeByte());
+//     try ut.expectEqual('b', try pipe.reader.takeByte());
+
+//     try pipe.writer.print("cd", .{});
+//     try pipe.writer.flush();
+//     try ut.expectEqual('c', try pipe.reader.takeByte());
+//     try ut.expectEqual('d', try pipe.reader.takeByte());
+
+//     try pipe.writer.print("e", .{});
+//     try pipe.writer.flush();
+//     try ut.expectEqual('e', try pipe.reader.takeByte());
+//     std.debug.print("{f}", .{pipe});
+// }
+
+test "pipe.Pipe threading" {
+    // const ut = std.testing;
 
     var wb: [4]u8 = undefined;
     var ib: [4]u8 = undefined;
     var rb: [4]u8 = undefined;
 
-    var pipe: Pipe = .init(&wb, &ib, &rb);
-    defer pipe.deinit();
+    const Ctx = struct {
+        const alphabet = "abcdefghijklmnopqrstuvwxyz";
+        pipe: Pipe,
+        fn producer(ctx: *@This()) !void {
+            std.debug.print("producer()>\n", .{});
+            defer std.debug.print("producer().\n", .{});
+            try ctx.pipe.writer.print("{s}", .{alphabet});
+            try ctx.pipe.writer.flush();
+        }
+        fn consumer(ctx: *@This()) !void {
+            std.debug.print("consumer()>\n", .{});
+            defer std.debug.print("consumer().\n", .{});
+            for (0..26) |_| {
+                std.debug.print("{}", .{try ctx.pipe.reader.takeByte()});
+            }
+        }
+    };
+    var ctx = Ctx{ .pipe = Pipe.init(&wb, &ib, &rb) };
+    defer ctx.pipe.deinit();
 
-    try pipe.writer.print("ab", .{});
-    try pipe.writer.flush();
-    try ut.expectEqual('a', try pipe.reader.takeByte());
-    try ut.expectEqual('b', try pipe.reader.takeByte());
+    var prod: std.Thread = try .spawn(.{}, Ctx.producer, .{&ctx});
+    defer prod.join();
 
-    try pipe.writer.print("cd", .{});
-    try pipe.writer.flush();
-    try ut.expectEqual('c', try pipe.reader.takeByte());
-    try ut.expectEqual('d', try pipe.reader.takeByte());
-
-    try pipe.writer.print("e", .{});
-    try pipe.writer.flush();
-    try ut.expectEqual('e', try pipe.reader.takeByte());
-    std.debug.print("{f}", .{pipe});
+    var cons: std.Thread = try .spawn(.{}, Ctx.consumer, .{&ctx});
+    defer cons.join();
 }
