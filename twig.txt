@@ -1,0 +1,31 @@
+&#ci Starting CI
+&#  build Starting build
+&*    date 2025-10-27
+&.  build 
+&#  ut Running unit tests
+&~    ut.a Testing a.1
+&~    ut.b Testing b.1
+&~    ut.a Testing a.2
+&~    ut.b Testing b.2
+&.  ut 
+&.ci 
+
+&>.ci
+&>ci.build
+&<ci.build
+&<.ci
+
+&~.ci
+&~.ci.build
+&~.ci.build.date
+&~.ci.build.status ok
+&~.ci
+&~.ci.ut
+&~.ci.ut.a
+&~.ci.ut.a.1
+&~.ci.ut.a.2
+&~.ci.ut.b
+&~.ci.ut.b.1
+&~.ci.ut.b.2
+&~.ci.ut.a.2
+&~.

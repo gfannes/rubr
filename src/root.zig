@@ -20,6 +20,7 @@ pub const algo = @import("algo.zig");
 pub const util = @import("util.zig");
 pub const comm = @import("comm.zig");
 pub const pipe = @import("pipe.zig");
+pub const twig = @import("twig.zig");
 
 test {
     ut.refAllDecls(@This());
@@ -42,4 +43,5 @@ test {
     ut.refAllDecls(util);
     ut.refAllDecls(comm);
     ut.refAllDecls(pipe);
+    ut.refAllDecls(twig);
 }

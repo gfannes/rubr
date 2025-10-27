@@ -208,31 +208,31 @@ pub const Pipe = struct {
     }
 };
 
-// test "pipe.Pipe" {
-//     const ut = std.testing;
+test "pipe.Pipe" {
+    const ut = std.testing;
 
-//     var wb: [4]u8 = undefined;
-//     var ib: [4]u8 = undefined;
-//     var rb: [4]u8 = undefined;
+    var wb: [4]u8 = undefined;
+    var ib: [4]u8 = undefined;
+    var rb: [4]u8 = undefined;
 
-//     var pipe: Pipe = .init(&wb, &ib, &rb);
-//     defer pipe.deinit();
+    var pipe: Pipe = .init(&wb, &ib, &rb);
+    defer pipe.deinit();
 
-//     try pipe.writer.print("ab", .{});
-//     try pipe.writer.flush();
-//     try ut.expectEqual('a', try pipe.reader.takeByte());
-//     try ut.expectEqual('b', try pipe.reader.takeByte());
+    try pipe.writer.print("ab", .{});
+    try pipe.writer.flush();
+    try ut.expectEqual('a', try pipe.reader.takeByte());
+    try ut.expectEqual('b', try pipe.reader.takeByte());
 
-//     try pipe.writer.print("cd", .{});
-//     try pipe.writer.flush();
-//     try ut.expectEqual('c', try pipe.reader.takeByte());
-//     try ut.expectEqual('d', try pipe.reader.takeByte());
+    try pipe.writer.print("cd", .{});
+    try pipe.writer.flush();
+    try ut.expectEqual('c', try pipe.reader.takeByte());
+    try ut.expectEqual('d', try pipe.reader.takeByte());
 
-//     try pipe.writer.print("e", .{});
-//     try pipe.writer.flush();
-//     try ut.expectEqual('e', try pipe.reader.takeByte());
-//     std.debug.print("{f}", .{pipe});
-// }
+    try pipe.writer.print("e", .{});
+    try pipe.writer.flush();
+    try ut.expectEqual('e', try pipe.reader.takeByte());
+    std.debug.print("{f}", .{pipe});
+}
 
 test "pipe.Pipe threading" {
     // const ut = std.testing;
