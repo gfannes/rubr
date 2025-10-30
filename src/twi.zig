@@ -70,7 +70,11 @@ pub const Scope = struct {
         const r = self.root.?;
 
         r.mutex.lock();
-        r.writer.interface.print(fmt, args) catch @panic("Failed to write print");
+        if (r.current != self) {
+            Marker.create('~', self.parent, self.name, false).format(&r.writer.interface) catch @panic("Failed to write 'print'");
+            r.current = self;
+        }
+        r.writer.interface.print(fmt, args) catch @panic("Failed to write 'print'");
         r.mutex.unlock();
     }
 };
@@ -89,6 +93,10 @@ pub const Variant = struct {
     pub fn leave(self: *Variant) void {
         self.scope.leave();
     }
+
+    pub fn print(self: *Variant, comptime fmt: []const u8, args: anytype) void {
+        self.scope.print(fmt, args);
+    }
 };
 
 const Marker = struct {
@@ -104,13 +112,22 @@ const Marker = struct {
     pub fn format(self: @This(), w: *std.Io.Writer) !void {
         try w.writeAll("\n&");
         try w.writeByte(self.char);
-        var maybe_scope = self.scope;
-        while (maybe_scope) |scope| {
-            try w.splatByteAll(' ', 2);
-            maybe_scope = scope.parent;
+        if (self.consistent) {
+            var maybe_scope = self.scope;
+            while (maybe_scope) |scope| {
+                try w.splatByteAll(' ', 2);
+                maybe_scope = scope.parent;
+            }
+        } else {
+            try format_path(self.scope, w);
         }
         try w.writeAll(self.name);
         try w.writeByte(' ');
+    }
+
+    fn format_path(scope: ?*Scope, w: *std.Io.Writer) !void {
+        _ = scope;
+        _ = w;
     }
 };
 
@@ -148,7 +165,7 @@ test "twip" {
                 var rng = prng.random();
                 for (0..4) |_| {
                     const duration_ns: u64 = @intFromFloat(rng.float(f64) * 100_000_000.0);
-                    std.debug.print("{} {}\n", .{ ix, duration_ns });
+                    v.print("{}", .{duration_ns});
                     std.Thread.sleep(duration_ns);
                 }
             }
