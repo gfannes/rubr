@@ -4,117 +4,215 @@ const std = @import("std");
 // These markers can indicate:
 // - A new twig is Entered `&#`
 // - The current twig is Closed `&.`
-// - A Leaf is encountered `&*`
-// - A Switch to an alternative source is made `&~`
+// - A Marker is encountered `&*`
+// - A Switch to an alternative source is made `&+`
 //
-// A twig has the format `\n&<type><name> `
+// A twig has the format `\n&<type><path> `
 // - `\n` is a newline
 // - `<type>` indicates the twig type and can be `#*~.`
 // - `<indent>` is an optional indentation that can be used for human readability
-// - `<name>` is the name of the twig, this cannot contain a space
-//   - For a switch, the name is `parent.name`, linking the switch to a specific parent that must be active
+// - `<path>` is the path of the twig, this cannot contain a spaces
+//   - path parts are separated with a '/'
+//   - a part constists of a name and an optional id, separated with a '.'
 // - ` ` is used to end the twig marker
 //
-// &#ci Starting CI
-// &#  build Starting build
-// &*    date 2025-10-27
-// &.  build
-// &#  ut Running unit tests
-// &~    ut.a Testing a.1
-// &~    ut.b Testing b.1
-// &~    ut.a Testing a.2
-// &~    ut.b Testing b.2
+// &#/ci                                              => We start with an absolute path
+// &#  build                                          => Relative path, we are at /ci/build
+// &*    object a.cpp                                 => Marker 'ojbect'
+// &*    object b.cpp
+// &.  build                                          => Closing /ci/build
+// &#  ut
+// &#/ci/ut/work.0                                    => Entering /ci/ut/work.0, full path due to a new thread
+// &*      duration ix: 0 36507446                    => Marker relative to /ci/ut/work.0
+// &#/ci/ut/work.1                                    => Note that a path part can optionally contain an id
+// &*      duration ix: 1 136340278
+// &#/ci/ut/work.2
+// &*      duration ix: 2 210553650
+// &*/ci/ut/work.0/duration ix: 0 41303962            => These prints are not interrupted by other threads: no need for a full path
+// &*      duration ix: 0 49802063ix: 0 last
+// &*      duration ix: 0 1501378
+// &.    work.0
+// &*/ci/ut/work.1/duration ix: 1 114091738
+// &*/ci/ut/work.2/duration ix: 2 182767239
+// &*/ci/ut/work.1/duration ix: 1 15226260ix: 1 last
+// &*      duration ix: 1 150430204
+// &*/ci/ut/work.2/duration ix: 2 253533771
+// &./ci/ut/work.1
+// &~/ci/ut/work.2 ix: 2 last                         => This is a print on a Scope without a marker that requires a switch with '~'
+// &*      duration ix: 2 83898627
+// &.    work.2
 // &.  ut
-// &.ci
+// &./ci
 
-const Output = struct {
-    const Self = @This();
-
+pub const Root = struct {
     valid: bool = false,
-    stdout: std.fs.File = undefined,
+    a: std.mem.Allocator = undefined,
     writer: std.fs.File.Writer = undefined,
-    output: *std.Io.Writer = undefined,
+    mutex: std.Thread.Mutex = .{},
+    current: ?*Scope = null,
 
-    pub fn set(self: *Self, itf: *std.Io.Writer) void {
-        self.output = itf;
+    pub fn init(self: *Root, a: std.mem.Allocator, file: std.fs.File, buffer: []u8) void {
+        std.debug.assert(!self.valid);
+        self.* = .{ .valid = true, .a = a, .writer = file.writer(buffer), .current = null };
     }
-};
-var output: Output = .{};
-
-const Indent = struct {
-    const Self = @This();
-
-    level: usize = 0,
-
-    pub fn format(self: Self, w: *std.Io.Writer) !void {
-        var data: [1][]const u8 = .{"  "};
-        for (0..self.level) |_| {
-            try w.writeVecAll(&data);
-        }
+    pub fn deinit(self: *Root) void {
+        std.debug.assert(self.valid);
+        self.writer.interface.flush() catch {};
+        self.valid = false;
     }
 };
 
-// &todo: Keep indent level for each `change` path that was taken
-var indent: Indent = .{};
+pub var root: Root = .{};
+threadlocal var tl_current: ?*Scope = null;
 
-var current_name: []const u8 = &.{};
-
-const Scope = struct {
+pub const Scope = struct {
     const Self = @This();
 
     name: []const u8,
-    parent: []const u8 = &.{},
+    id: ?usize = null,
+    root: ?*Root = null,
+    parent: ?*Scope = null,
 
-    pub fn init(name: []const u8) Self {
-        if (!output.valid) {
-            // Logging to stdout somehow hangs for UT
-            // output.stdout = std.fs.File.stdout();
-            output.stdout = std.fs.File.stderr();
-            output.writer = output.stdout.writer(&.{});
-            output.output = &output.writer.interface;
-            output.valid = true;
+    // `self` must have a stable address
+    pub fn enter(self: *Self) void {
+        if (self.root == null)
+            self.root = &root;
+        var r = self.root.?;
+
+        if (self.parent == null)
+            self.parent = tl_current;
+
+        r.mutex.lock();
+        Marker.create('#', self.parent, self.name, self.id, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'enter'");
+        tl_current = self;
+        r.current = self;
+        r.mutex.unlock();
+    }
+    pub fn leave(self: *Self) void {
+        std.debug.assert(self.root != null);
+        var r = self.root.?;
+
+        r.mutex.lock();
+        Marker.create('.', self.parent, self.name, self.id, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'leave'");
+        tl_current = self.parent;
+        r.current = self.parent;
+        r.mutex.unlock();
+    }
+
+    pub fn mark(self: *Self, name: []const u8) *Self {
+        std.debug.assert(self.root != null);
+        var r = self.root.?;
+
+        r.mutex.lock();
+        Marker.create('*', self, name, null, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'mark'");
+        tl_current = self;
+        r.current = self;
+        r.mutex.unlock();
+
+        return self;
+    }
+
+    pub fn print(self: *Self, comptime fmt: []const u8, args: anytype) void {
+        std.debug.assert(self.root != null);
+        const r = self.root.?;
+
+        r.mutex.lock();
+        if (r.current != self) {
+            Marker.create('~', self.parent, self.name, self.id, false).format(&r.writer.interface) catch @panic("Failed to write 'print'");
+            r.current = self;
         }
-        output.output.print("\n&#{f}{s} ", .{ indent, name }) catch {};
-        indent.level += 1;
-        defer current_name = name;
-        return Self{ .name = name, .parent = current_name };
+        r.writer.interface.print(fmt, args) catch @panic("Failed to write 'print'");
+        r.mutex.unlock();
     }
-    pub fn deinit(self: *Self) void {
-        indent.level -= 1;
-        output.output.print("\n&.{f}{s} ", .{ indent, self.name }) catch {};
-        current_name = self.parent;
+};
+
+const Marker = struct {
+    char: u8,
+    scope: ?*Scope,
+    name: []const u8,
+    id: ?usize,
+    consistent: bool,
+
+    fn create(char: u8, scope: ?*Scope, name: []const u8, id: ?usize, consistent: bool) Marker {
+        return Marker{ .char = char, .scope = scope, .name = name, .id = id, .consistent = consistent };
     }
 
-    pub fn scope(_: Self, name: []const u8) Self {
-        return Scope.init(name);
+    pub fn format(self: @This(), w: *std.Io.Writer) !void {
+        try w.writeAll("\n&");
+        try w.writeByte(self.char);
+        const is_root = self.scope == null;
+        try format_path(self.scope, w, self.consistent and !is_root);
+        try w.writeAll(self.name);
+        if (self.id) |id|
+            try w.print(".{}", .{id});
+        try w.writeByte(' ');
     }
 
-    pub fn leaf(_: Self, name: []const u8) void {
-        output.output.print("\n&*{f}{s} ", .{ indent, name }) catch {};
-    }
-
-    pub fn change(self: Self, name: []const u8) void {
-        output.output.print("\n&~{f}{s}.{s} ", .{ indent, self.name, name }) catch {};
+    fn format_path(scope: ?*Scope, w: *std.Io.Writer, relative: bool) !void {
+        if (scope) |s| {
+            try format_path(s.parent, w, relative);
+            if (relative) {
+                try w.splatByteAll(' ', 2);
+            } else {
+                try w.writeAll(s.name);
+                if (s.id) |id|
+                    try w.print(".{}", .{id});
+            }
+        }
+        if (!relative)
+            try w.writeByte('/');
     }
 };
 
 test "twig" {
-    var ci = Scope.init("root");
-    defer ci.deinit();
+    const ut = std.testing;
+
+    var buf: [10]u8 = undefined;
+    root.init(ut.allocator, std.fs.File.stderr(), &buf);
+    defer root.deinit();
+
+    var ci = Scope{ .name = "ci" };
+    ci.enter();
+    defer ci.leave();
 
     {
-        var build = Scope.init("build");
-        defer build.deinit();
-
-        build.leaf("data");
+        var build = Scope{ .name = "build" };
+        build.enter();
+        defer build.leave();
+        build.mark("object").print("a.cpp", .{});
+        build.mark("object").print("b.cpp", .{});
     }
 
     {
-        var ut = ci.scope("ut");
-        defer ut.deinit();
+        var utt = Scope{ .name = "ut" };
+        utt.enter();
+        defer utt.leave();
 
-        ut.change("a");
-        ut.change("b");
-        ut.change("a");
+        const Worker = struct {
+            fn call(ix: usize, parent: *Scope) void {
+                var s = Scope{ .name = "work", .id = ix, .parent = parent };
+                s.enter();
+                defer s.leave();
+
+                var prng = std.Random.DefaultPrng.init(ix);
+                var rng = prng.random();
+                for (0..4) |i| {
+                    if (i == 3)
+                        s.print("ix: {} last", .{ix});
+                    const duration_ns: u64 = @as(u64, @intFromFloat(rng.float(f64) * 100_000_000.0)) * (ix + 1);
+                    s.mark("duration").print("ix: {} {}", .{ ix, duration_ns });
+                    std.Thread.sleep(duration_ns);
+                }
+            }
+        };
+
+        var threads: [3]std.Thread = undefined;
+        for (&threads, 0..) |*thread, ix0| {
+            thread.* = try std.Thread.spawn(.{}, Worker.call, .{ ix0, &utt });
+        }
+
+        for (&threads) |*thread| {
+            thread.join();
+        }
     }
 }
