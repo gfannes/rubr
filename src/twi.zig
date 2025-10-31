@@ -25,6 +25,7 @@ pub const Scope = struct {
     const Self = @This();
 
     name: []const u8,
+    id: ?usize = null,
     root: ?*Root = null,
     parent: ?*Scope = null,
 
@@ -38,7 +39,7 @@ pub const Scope = struct {
             self.parent = tl_current;
 
         r.mutex.lock();
-        Marker.create('#', self.parent, self.name, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'enter'");
+        Marker.create('#', self.parent, self.name, self.id, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'enter'");
         tl_current = self;
         r.current = self;
         r.mutex.unlock();
@@ -48,7 +49,7 @@ pub const Scope = struct {
         var r = self.root.?;
 
         r.mutex.lock();
-        Marker.create('.', self.parent, self.name, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'leave'");
+        Marker.create('.', self.parent, self.name, self.id, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'leave'");
         tl_current = self.parent;
         r.current = self.parent;
         r.mutex.unlock();
@@ -59,7 +60,7 @@ pub const Scope = struct {
         var r = self.root.?;
 
         r.mutex.lock();
-        Marker.create('*', self, name, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'mark'");
+        Marker.create('*', self, name, null, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'mark'");
         r.mutex.unlock();
 
         return self;
@@ -71,7 +72,7 @@ pub const Scope = struct {
 
         r.mutex.lock();
         if (r.current != self) {
-            Marker.create('~', self.parent, self.name, false).format(&r.writer.interface) catch @panic("Failed to write 'print'");
+            Marker.create('+', self.parent, self.name, self.id, false).format(&r.writer.interface) catch @panic("Failed to write 'print'");
             r.current = self;
         }
         r.writer.interface.print(fmt, args) catch @panic("Failed to write 'print'");
@@ -79,55 +80,41 @@ pub const Scope = struct {
     }
 };
 
-pub const Variant = struct {
-    name: []const u8,
-    id: ?usize = null,
-
-    scope: Scope = .{ .name = "<noname>" },
-
-    pub fn enter(self: *Variant, parent: *Scope) void {
-        self.scope.name = self.name;
-        self.scope.parent = parent;
-        self.scope.enter();
-    }
-    pub fn leave(self: *Variant) void {
-        self.scope.leave();
-    }
-
-    pub fn print(self: *Variant, comptime fmt: []const u8, args: anytype) void {
-        self.scope.print(fmt, args);
-    }
-};
-
 const Marker = struct {
     char: u8,
     scope: ?*Scope,
     name: []const u8,
+    id: ?usize,
     consistent: bool,
 
-    fn create(char: u8, scope: ?*Scope, name: []const u8, consistent: bool) Marker {
-        return Marker{ .char = char, .scope = scope, .name = name, .consistent = consistent };
+    fn create(char: u8, scope: ?*Scope, name: []const u8, id: ?usize, consistent: bool) Marker {
+        return Marker{ .char = char, .scope = scope, .name = name, .id = id, .consistent = consistent };
     }
 
     pub fn format(self: @This(), w: *std.Io.Writer) !void {
         try w.writeAll("\n&");
         try w.writeByte(self.char);
-        if (self.consistent) {
-            var maybe_scope = self.scope;
-            while (maybe_scope) |scope| {
-                try w.splatByteAll(' ', 2);
-                maybe_scope = scope.parent;
-            }
-        } else {
-            try format_path(self.scope, w);
-        }
+        const is_root = self.scope == null;
+        try format_path(self.scope, w, self.consistent and !is_root);
         try w.writeAll(self.name);
+        if (self.id) |id|
+            try w.print(".{}", .{id});
         try w.writeByte(' ');
     }
 
-    fn format_path(scope: ?*Scope, w: *std.Io.Writer) !void {
-        _ = scope;
-        _ = w;
+    fn format_path(scope: ?*Scope, w: *std.Io.Writer, relative: bool) !void {
+        if (scope) |s| {
+            try format_path(s.parent, w, relative);
+            if (relative) {
+                try w.splatByteAll(' ', 2);
+            } else {
+                try w.writeAll(s.name);
+                if (s.id) |id|
+                    try w.print(".{}", .{id});
+            }
+        }
+        const sep: u8 = if (relative) ' ' else '/';
+        try w.writeByte(sep);
     }
 };
 
@@ -157,15 +144,15 @@ test "twip" {
 
         const Worker = struct {
             fn call(ix: usize, parent: *Scope) void {
-                var v = Variant{ .name = "work", .id = ix };
-                v.enter(parent);
-                defer v.leave();
+                var s = Scope{ .name = "work", .id = ix, .parent = parent };
+                s.enter();
+                defer s.leave();
 
                 var prng = std.Random.DefaultPrng.init(ix);
                 var rng = prng.random();
                 for (0..4) |_| {
                     const duration_ns: u64 = @intFromFloat(rng.float(f64) * 100_000_000.0);
-                    v.print("{}", .{duration_ns});
+                    s.print("{}", .{duration_ns});
                     std.Thread.sleep(duration_ns);
                 }
             }
