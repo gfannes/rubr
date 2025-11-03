@@ -129,8 +129,8 @@ pub const Pipe = struct {
     fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) !usize {
         _ = splat;
 
-        const pipe: *Pipe = @fieldParentPtr("writer", w);
-        var intern = &pipe.intern;
+        const p: *Pipe = @fieldParentPtr("writer", w);
+        var intern = &p.intern;
 
         const copy_from_buffer = w.end > 0;
         var src = if (copy_from_buffer) w.buffer[0..w.end] else data[0];
@@ -139,9 +139,6 @@ pub const Pipe = struct {
         {
             intern.mutex.lock();
             defer intern.mutex.unlock();
-
-            std.debug.print("drain({})>\n{f}", .{ data[0].len, pipe.* });
-            defer std.debug.print("{f}drain().\n", .{pipe.*});
 
             while (intern.is_full()) {
                 intern.cond.wait(&intern.mutex);
@@ -172,18 +169,21 @@ pub const Pipe = struct {
     fn stream(r: *std.Io.Reader, _: *std.Io.Writer, limit: std.Io.Limit) !usize {
         _ = limit;
 
-        const pipe: *Pipe = @fieldParentPtr("reader", r);
-        var intern = &pipe.intern;
+        const p: *Pipe = @fieldParentPtr("reader", r);
+        var intern = &p.intern;
 
         {
             intern.mutex.lock();
             defer intern.mutex.unlock();
 
-            std.debug.print("stream()>\n{f}", .{pipe.*});
-            defer std.debug.print("{f}stream().\n", .{pipe.*});
-
             while (intern.is_empty()) {
                 intern.cond.wait(&intern.mutex);
+            }
+
+            if (r.seek == r.end) {
+                // All buffered data was read: reset the internal pointers to maximize read buffer size
+                r.seek = 0;
+                r.end = 0;
             }
 
             var dst = r.buffer[r.end..];
