@@ -19,21 +19,21 @@ pub const Scope = struct {
     const Self = @This();
 
     id: Id,
-    start: Timestamp,
+    start: std.time.Instant,
 
     pub fn init(id: Id) Scope {
         return Scope{ .id = id, .start = Self.now() };
     }
     pub fn deinit(self: Self) void {
-        const elapse = now() - self.start;
+        const elapse = now().since(self.start);
         measurements[@intFromEnum(self.id)].max = elapse;
         const a = @divFloor(elapse, 1_000_000_000);
         const b = elapse - a * 1_000_000_000;
         std.debug.print("elapse: {}.{:0>9.9}s\n", .{ a, @as(u64, @intCast(b)) });
     }
 
-    fn now() Timestamp {
-        return std.time.nanoTimestamp();
+    fn now() std.time.Instant {
+        return std.time.Instant.now() catch @panic("Cannot get current time");
     }
 };
 

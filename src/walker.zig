@@ -5,10 +5,6 @@ const std = @import("std");
 const ignore = @import("walker/ignore.zig");
 const slc = @import("slc.zig");
 
-const Error = error{
-    CouldNotReadIgnore,
-};
-
 pub const Offsets = struct {
     base: usize = 0,
     name: usize = 0,
@@ -28,6 +24,7 @@ pub const Walker = struct {
     filter: Filter = .{},
 
     a: std.mem.Allocator,
+    io: std.Io,
 
     // We keep track of the current path as a []const u8. If the caller has to do this,
     // he has to use Dir.realpath() which is less efficient.
@@ -39,8 +36,8 @@ pub const Walker = struct {
 
     ignore_stack: IgnoreStack = .{},
 
-    pub fn init(a: std.mem.Allocator) Walker {
-        return Walker{ .a = a };
+    pub fn init(a: std.mem.Allocator, io: std.Io) Walker {
+        return Walker{ .a = a, .io = io };
     }
 
     pub fn deinit(self: *Walker) void {
@@ -80,8 +77,9 @@ pub const Walker = struct {
 
             var ig = Ignore{ .buffer = try Buffer.initCapacity(self.a, stat.size) };
             try ig.buffer.resize(self.a, stat.size);
-            if (stat.size != try file.readAll(ig.buffer.items))
-                return Error.CouldNotReadIgnore;
+            var buf: [1024]u8 = undefined;
+            var reader = file.reader(self.io, &buf);
+            try reader.interface.readSliceAll(ig.buffer.items);
 
             ig.ignore = try ignore.Ignore.initFromContent(ig.buffer.items, self.a);
             ig.path_len = self.path.len;
@@ -183,7 +181,7 @@ fn is_hidden(name: []const u8) bool {
 test "walk" {
     const ut = std.testing;
 
-    var walker = Walker.init(ut.allocator);
+    var walker = Walker.init(ut.allocator, ut.io);
     defer walker.deinit();
     walker.filter = .{ .extensions = &[_][]const u8{ ".o", ".exe" } };
 

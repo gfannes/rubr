@@ -288,7 +288,7 @@ test "leaf" {
         defer file.close();
 
         var buffer: [1024]u8 = undefined;
-        var reader = file.reader(&buffer);
+        var reader = file.reader(ut.io, &buffer);
 
         var tr = TreeReader{ .in = &reader.interface };
 
@@ -308,7 +308,7 @@ test "leaf" {
         defer file.close();
 
         var buffer: [1024]u8 = undefined;
-        var reader = file.reader(&buffer);
+        var reader = file.reader(ut.io, &buffer);
 
         var tr = TreeReader{ .in = &reader.interface };
 

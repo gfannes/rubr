@@ -189,7 +189,7 @@ test "twig" {
         defer utt.leave();
 
         const Worker = struct {
-            fn call(ix: usize, parent: *Scope) void {
+            fn call(ix: usize, parent: *Scope) !void {
                 var s = Scope{ .name = "work", .id = ix, .parent = parent };
                 s.enter();
                 defer s.leave();
@@ -199,9 +199,10 @@ test "twig" {
                 for (0..4) |i| {
                     if (i == 3)
                         s.print("ix: {} last", .{ix});
-                    const duration_ns: u64 = @as(u64, @intFromFloat(rng.float(f64) * 100_000_000.0)) * (ix + 1);
-                    s.mark("duration").print("ix: {} {}", .{ ix, duration_ns });
-                    std.Thread.sleep(duration_ns);
+                    const duration_ms = @as(i64, @intFromFloat(rng.float(f64) * 10.0)) * @as(i64, @intCast(ix + 1));
+                    s.mark("duration").print("ix: {} {}", .{ ix, duration_ms });
+                    const duration = std.Io.Duration.fromMilliseconds(duration_ms);
+                    try ut.io.sleep(duration, std.Io.Clock.real);
                 }
             }
         };
