@@ -4,6 +4,7 @@ const std = @import("std");
 
 const ignore = @import("walker/ignore.zig");
 const slc = @import("slc.zig");
+const Env = @import("Env.zig");
 
 pub const Offsets = struct {
     base: usize = 0,
@@ -21,10 +22,9 @@ pub const Walker = struct {
     const IgnoreStack = std.ArrayList(Ignore);
     const Buffer = std.ArrayList(u8);
 
-    filter: Filter = .{},
+    env: Env,
 
-    a: std.mem.Allocator,
-    io: std.Io,
+    filter: Filter = .{},
 
     // We keep track of the current path as a []const u8. If the caller has to do this,
     // he has to use Dir.realpath() which is less efficient.
@@ -36,16 +36,12 @@ pub const Walker = struct {
 
     ignore_stack: IgnoreStack = .{},
 
-    pub fn init(a: std.mem.Allocator, io: std.Io) Walker {
-        return Walker{ .a = a, .io = io };
-    }
-
     pub fn deinit(self: *Walker) void {
         for (self.ignore_stack.items) |*item| {
             item.ignore.deinit();
-            item.buffer.deinit(self.a);
+            item.buffer.deinit(self.env.a);
         }
-        self.ignore_stack.deinit(self.a);
+        self.ignore_stack.deinit(self.env.a);
     }
 
     // cb() is passed:
@@ -75,15 +71,15 @@ pub const Walker = struct {
 
             const stat = try file.stat();
 
-            var ig = Ignore{ .buffer = try Buffer.initCapacity(self.a, stat.size) };
-            try ig.buffer.resize(self.a, stat.size);
+            var ig = Ignore{ .buffer = try Buffer.initCapacity(self.env.a, stat.size) };
+            try ig.buffer.resize(self.env.a, stat.size);
             var buf: [1024]u8 = undefined;
-            var reader = file.reader(self.io, &buf);
+            var reader = file.reader(self.env.io, &buf);
             try reader.interface.readSliceAll(ig.buffer.items);
 
-            ig.ignore = try ignore.Ignore.initFromContent(ig.buffer.items, self.a);
+            ig.ignore = try ignore.Ignore.initFromContent(ig.buffer.items, self.env.a);
             ig.path_len = self.path.len;
-            try self.ignore_stack.append(self.a, ig);
+            try self.ignore_stack.append(self.env.a, ig);
 
             self.ignore_offset = ig.path_len + 1;
 
@@ -136,7 +132,7 @@ pub const Walker = struct {
         if (added_ignore) {
             if (self.ignore_stack.pop()) |v| {
                 var v_mut = v;
-                v_mut.buffer.deinit(self.a);
+                v_mut.buffer.deinit(self.env.a);
                 v_mut.ignore.deinit();
             }
 
@@ -179,9 +175,11 @@ fn is_hidden(name: []const u8) bool {
 }
 
 test "walk" {
-    const ut = std.testing;
+    var env_inst = Env.Instance{};
+    env_inst.init();
+    defer env_inst.deinit();
 
-    var walker = Walker.init(ut.allocator, ut.io);
+    var walker = Walker{ .env = env_inst.env() };
     defer walker.deinit();
     walker.filter = .{ .extensions = &[_][]const u8{ ".o", ".exe" } };
 

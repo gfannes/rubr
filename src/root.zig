@@ -2,7 +2,8 @@ const std = @import("std");
 const ut = std.testing;
 
 pub const glb = @import("glb.zig");
-pub const log = @import("log.zig");
+pub const Env = @import("Env.zig");
+pub const Log = @import("Log.zig");
 pub const slc = @import("slc.zig");
 pub const opt = @import("opt.zig");
 pub const idx = @import("idx.zig");
@@ -26,7 +27,8 @@ pub const fs = @import("fs.zig");
 test {
     ut.refAllDecls(@This());
     ut.refAllDecls(glb);
-    ut.refAllDecls(log);
+    ut.refAllDecls(Env);
+    ut.refAllDecls(Log);
     ut.refAllDecls(slc);
     ut.refAllDecls(opt);
     ut.refAllDecls(idx);

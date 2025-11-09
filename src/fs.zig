@@ -4,6 +4,58 @@ pub const Error = error{
     BufferTooSmall,
 };
 
+pub const Path = struct {
+    const Self = @This();
+    pub const max_len = std.fs.max_path_bytes;
+
+    buffer: [Self.max_len]u8 = undefined,
+    len: usize = 0,
+
+    pub fn set(self: *Self, str: []const u8) !void {
+        if (str.len > max_len)
+            return Error.BufferTooSmall;
+        self.len = str.len;
+        @memcpy(self.buffer[0..self.len], str);
+    }
+
+    pub fn home() !Self {
+        var res = Self{};
+        var fba = std.heap.FixedBufferAllocator.init(&res.buffer);
+        const env_var = try std.process.getEnvVarOwned(fba.allocator(), "HOME");
+        res.len = env_var.len;
+        @memmove(res.buffer[0..res.len], env_var);
+        return res;
+    }
+
+    pub fn add(self: *Self, part: []const u8) !void {
+        if (self.len + 1 + part.len > max_len)
+            return Error.BufferTooSmall;
+        if (self.len > 0) {
+            self.buffer[self.len] = '/';
+            self.len += 1;
+        }
+        @memcpy(self.buffer[self.len .. self.len + part.len], part);
+        self.len += part.len;
+    }
+
+    pub fn path(self: Self) []const u8 {
+        return self.buffer[0..self.len];
+    }
+};
+
+test "fs.Path" {
+    const ut = std.testing;
+
+    var p = Path{};
+    try ut.expectEqualStrings("", p.path());
+
+    try p.add("abc");
+    try ut.expectEqualStrings("abc", p.path());
+
+    try p.add("def");
+    try ut.expectEqualStrings("abc/def", p.path());
+}
+
 pub fn homeDir(a: std.mem.Allocator) ![]u8 {
     // &todo: Support Windows
     return try std.process.getEnvVarOwned(a, "HOME");
