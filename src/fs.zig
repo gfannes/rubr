@@ -56,9 +56,15 @@ test "fs.Path" {
     try ut.expectEqualStrings("abc/def", p.path());
 }
 
-pub fn homeDir(a: std.mem.Allocator) ![]u8 {
+pub fn homeDirAlloc(a: std.mem.Allocator, maybe_part: ?[]const u8) ![]u8 {
     // &todo: Support Windows
-    return try std.process.getEnvVarOwned(a, "HOME");
+    var home_buf: [std.fs.max_path_bytes]u8 = undefined;
+    var fba = std.heap.FixedBufferAllocator.init(&home_buf);
+    const home = try std.process.getEnvVarOwned(fba.allocator(), "HOME");
+    return if (maybe_part) |part|
+        try std.mem.concat(a, u8, &[_][]const u8{ home, "/", part })
+    else
+        try a.dupe(u8, home);
 }
 
 pub fn homePath(part: []const u8, buf: []u8) ![]const u8 {
@@ -103,7 +109,7 @@ test "fs" {
     const ut = std.testing;
 
     {
-        const home = try homeDir(ut.allocator);
+        const home = try homeDirAlloc(ut.allocator, null);
         defer ut.allocator.free(home);
 
         std.debug.print("home: {s}\n", .{home});
