@@ -97,18 +97,18 @@ pub fn writer(self: Self) *std.Io.Writer {
     return self._io;
 }
 
-pub fn print(self: Self, comptime fmt: []const u8, args: anytype) !void {
-    try self._io.print(fmt, args);
+pub fn print(self: Self, comptime fmtstr: []const u8, args: anytype) !void {
+    try self._io.print(fmtstr, args);
     try self._io.flush();
 }
-pub fn info(self: Self, comptime fmt: []const u8, args: anytype) !void {
-    try self.print("Info: " ++ fmt, args);
+pub fn info(self: Self, comptime fmtstr: []const u8, args: anytype) !void {
+    try self.print("Info: " ++ fmtstr, args);
 }
-pub fn warning(self: Self, comptime fmt: []const u8, args: anytype) !void {
-    try self.print("Warning: " ++ fmt, args);
+pub fn warning(self: Self, comptime fmtstr: []const u8, args: anytype) !void {
+    try self.print("Warning: " ++ fmtstr, args);
 }
-pub fn err(self: Self, comptime fmt: []const u8, args: anytype) !void {
-    try self.print("Error: " ++ fmt, args);
+pub fn err(self: Self, comptime fmtstr: []const u8, args: anytype) !void {
+    try self.print("Error: " ++ fmtstr, args);
 }
 
 pub fn level(self: Self, lvl: usize) ?*std.Io.Writer {

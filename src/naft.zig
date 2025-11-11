@@ -93,12 +93,12 @@ pub const Node = struct {
                 self.print("  ", .{});
     }
 
-    fn print(self: Self, comptime fmt: []const u8, args: anytype) void {
+    fn print(self: Self, comptime fmtstr: []const u8, args: anytype) void {
         if (self.io) |io| {
-            io.print(fmt, args) catch {};
+            io.print(fmtstr, args) catch {};
             io.flush() catch {};
         } else {
-            std.debug.print(fmt, args);
+            std.debug.print(fmtstr, args);
         }
     }
 };
