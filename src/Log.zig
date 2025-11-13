@@ -11,7 +11,7 @@ const Autoclean = struct {
 };
 
 _do_close: bool = false,
-_file: std.fs.File = std.fs.File.stdout(),
+_file: std.fs.File = undefined,
 
 _buffer: [1024]u8 = undefined,
 _writer: std.fs.File.Writer = undefined,
@@ -23,6 +23,7 @@ _lvl: usize = 0,
 _autoclean: ?Autoclean = null,
 
 pub fn init(self: *Self) void {
+    self._file = std.fs.File.stdout();
     self.initWriter();
 }
 pub fn deinit(self: *Self) void {
