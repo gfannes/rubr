@@ -46,6 +46,8 @@ pub const TreeWriter = struct {
             try self.writeLeaf(UInt{ .u = obj }, id);
         } else if (comptime util.isIntType(T)) |_| {
             try self.writeLeaf(Int{ .i = obj }, id);
+        } else if (comptime util.isBoolType(T)) {
+            try self.writeLeaf(Bool{ .b = obj }, id);
         } else {
             var counter = Counter{};
             try obj.writeLeaf(&counter.interface);
@@ -96,6 +98,11 @@ pub const TreeReader = struct {
             var int = Int{};
             const ret = try self.readLeaf(&int, id, ctx);
             obj.* = std.math.cast(T, int.i) orelse return Error.TooLarge;
+            return ret;
+        } else if (comptime util.isBoolType(T)) {
+            var b = Bool{};
+            const ret = try self.readLeaf(&b, id, ctx);
+            obj.* = b.b;
             return ret;
         } else {
             const header = try self.readHeader();
@@ -181,7 +188,8 @@ pub fn readUInt(T: type, size: usize, io: *std.Io.Reader) !T {
     try io.readSliceAll(slice);
     var u: T = 0;
     for (slice) |byte| {
-        u <<= 8;
+        if (@sizeOf(T) > 1)
+            u <<= 8;
         u |= @as(T, byte);
     }
     return u;
@@ -311,6 +319,18 @@ const Int = struct {
         self.i = try readInt(@TypeOf(self.i), size, io);
     }
 };
+const Bool = struct {
+    const Self = @This();
+    b: bool = false,
+    fn writeLeaf(self: Self, io: *std.Io.Writer) !void {
+        const u: u8 = if (self.b) 1 else 0;
+        try writeUInt(u, io);
+    }
+    fn readLeaf(self: *Self, size: usize, io: *std.Io.Reader, _: void) !void {
+        const u = try readUInt(u8, size, io);
+        self.b = if (u == 0) false else true;
+    }
+};
 
 test "leaf" {
     const ut = std.testing;
@@ -331,6 +351,8 @@ test "leaf" {
         try tw.writeLeaf("string", 3);
         try tw.writeLeaf(@as(i32, -3), 3);
         try tw.writeLeaf(@as(i32, 3), 3);
+        try tw.writeLeaf(true, 3);
+        try tw.writeLeaf(false, 3);
     }
 
     // Read the content using wrapper classes
@@ -357,6 +379,12 @@ test "leaf" {
         try ut.expectEqual(-3, int.i);
         try ut.expect(try tr.readLeaf(&int, 3, {}));
         try ut.expectEqual(3, int.i);
+
+        var b = Bool{};
+        try ut.expect(try tr.readLeaf(&b, 3, {}));
+        try ut.expectEqual(true, b.b);
+        try ut.expect(try tr.readLeaf(&b, 3, {}));
+        try ut.expectEqual(false, b.b);
     }
 
     // Read the content using primitive data types

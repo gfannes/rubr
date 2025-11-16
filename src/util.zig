@@ -33,6 +33,18 @@ pub fn isIntType(T: type) ?u16 {
     };
 }
 
+pub fn isBoolType(T: type) bool {
+    return switch (@typeInfo(T)) {
+        .bool => true,
+        else => false,
+    };
+}
+test "util.isBoolType" {
+    const ut = std.testing;
+    try ut.expectEqual(true, isBoolType(bool));
+    try ut.expectEqual(false, isBoolType(u1));
+}
+
 pub fn isStringType(T: type) bool {
     const BaseT = baseType(T);
     if (BaseT != u8)
