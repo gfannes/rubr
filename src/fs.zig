@@ -89,6 +89,10 @@ pub fn homePath(part: []const u8, buf: []u8) ![]const u8 {
     return path;
 }
 
+pub fn cwdPathAlloc(a: std.mem.Allocator, maybe_part: ?[]const u8) ![]u8 {
+    return try std.fs.cwd().realpathAlloc(a, maybe_part orelse ".");
+}
+
 pub fn isDirectory(path: []const u8) bool {
     const err_dir =
         if (std.fs.path.isAbsolute(path))
