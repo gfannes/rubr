@@ -36,7 +36,7 @@ class Mod
         line.chomp!
         if md = /^const (.+) = @import\("(.+)"\);/.match(line)
           name, file = md[1], md[2]
-          if file != 'std'
+          if !%w[std builtin].include?(file)
             fp = (@fp.dirname/file).cleanpath
             basename = File.basename(fp, '.zig')
             raise("Expected name '#{name}' to be the same as the basename '#{basename}'") unless basename == name
@@ -92,7 +92,12 @@ class Export
   def write()
     @lines = []
     @lines << "// Output from `rake export[#{@adds.join(',')}]` from https://github.com/gfannes/rubr from #{Time.now.strftime('%Y-%m-%d')}"
-    @lines << '' << 'const std = @import("std");' if @add_std
+    if @add_std
+      @lines << ''
+      %w[std builtin].each do |name|
+        @lines << "const #{name} = @import(\"#{name}\");"
+      end
+    end
 
     path = %w[]
     write_mods_(path)
