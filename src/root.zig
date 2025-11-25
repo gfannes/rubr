@@ -24,6 +24,7 @@ pub const pipe = @import("pipe.zig");
 pub const twig = @import("twig.zig");
 pub const fs = @import("fs.zig");
 pub const fmt = @import("fmt.zig");
+pub const date = @import("date.zig");
 
 test {
     ut.refAllDecls(@This());
@@ -50,4 +51,5 @@ test {
     ut.refAllDecls(twig);
     ut.refAllDecls(fs);
     ut.refAllDecls(fmt);
+    ut.refAllDecls(date);
 }
