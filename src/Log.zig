@@ -27,10 +27,8 @@ pub fn init(self: *Self) void {
     self.initWriter();
 }
 pub fn deinit(self: *Self) void {
-    std.debug.print("Log.deinit()\n", .{});
     self.closeWriter() catch {};
     if (self._autoclean) |autoclean| {
-        std.debug.print("Removing '{s}'\n", .{autoclean.filepath});
         std.fs.deleteFileAbsolute(autoclean.filepath) catch {};
     }
 }
@@ -79,7 +77,6 @@ pub fn toFile(self: *Self, filepath: []const u8, options: Options) !void {
             std.mem.copyForwards(u8, fp, filepath_clean);
             if (self._autoclean) |*autoclean| {
                 autoclean.filepath = fp;
-                std.debug.print("Setup autoclean for '{s}'\n", .{autoclean.filepath});
             }
         }
     } else {
