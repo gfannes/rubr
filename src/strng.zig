@@ -133,6 +133,37 @@ pub const Strange = struct {
         return null;
     }
 
+    pub fn popIntMaxCount(self: *Self, T: type, max_count: usize) ?T {
+        // Find number of chars comprising number
+        const count = @min(max_count, self.content.len);
+        var slice = self.content[0..count];
+        for (slice, 0..) |ch, ix| {
+            switch (ch) {
+                '0'...'9' => {},
+                '-', '+' => if (ix > 0) {
+                    slice.len = ix;
+                    break;
+                },
+                else => {
+                    slice.len = ix;
+                    break;
+                },
+            }
+        }
+        if (std.fmt.parseInt(T, slice, 10) catch null) |v| {
+            self._popFront(slice.len);
+            return v;
+        }
+        return null;
+    }
+
+    pub fn popFront(self: *Self, count: usize) ?[]const u8 {
+        if (self.content.len < count)
+            return null;
+        defer self._popFront(count);
+        return self.content[0..count];
+    }
+
     fn _popFront(self: *Self, count: usize) void {
         self.content.ptr += count;
         self.content.len -= count;
@@ -207,6 +238,17 @@ test "Strange.popInt" {
         const str, const exp = scn;
         var strange = Strange{ .content = str };
         try ut.expectEqual(exp, strange.popInt(i32));
+    }
+}
+
+test "Strange.popIntMaxCount" {
+    const ut = std.testing;
+
+    const scns = [_]struct { []const u8, usize, ?i32 }{ .{ "42", 2, 42 }, .{ "42", 1, 4 }, .{ "123", 2, 12 }, .{ "1-", 2, 1 } };
+    for (scns) |scn| {
+        const str, const max_count, const exp = scn;
+        var strange = Strange{ .content = str };
+        try ut.expectEqual(exp, strange.popIntMaxCount(i32, max_count));
     }
 }
 
