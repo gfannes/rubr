@@ -26,7 +26,7 @@ pub const Date = struct {
     }
 };
 
-test "time" {
+test "datex" {
     const today = try Date.today();
     std.debug.print("{f}\n", .{today});
 }
