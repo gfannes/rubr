@@ -41,6 +41,11 @@ pub fn Tree(Data: type) type {
                 return Error.UnknownNode;
             return &self.nodes.items[id].data;
         }
+        pub fn cget(self: Self, id: Id) !*const Data {
+            if (id >= self.nodes.items.len)
+                return Error.UnknownNode;
+            return &self.nodes.items[id].data;
+        }
 
         pub fn ptr(self: *Self, id: Id) *Data {
             return &self.nodes.items[id].data;

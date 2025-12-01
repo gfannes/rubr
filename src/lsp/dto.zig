@@ -254,8 +254,10 @@ pub const ServerCapabilities = struct {
     completionProvider: ?CompletionOptions = null,
     documentSymbolProvider: ?bool = null,
     workspaceSymbolProvider: ?bool = null,
-    definitionProvider: ?bool = null,
     declarationProvider: ?bool = null,
+    definitionProvider: ?bool = null,
+    typeDefinitionProvider: ?bool = null,
+    implementationProvider: ?bool = null,
     referencesProvider: ?bool = null,
     workspace: ?Workspace = null,
 };
