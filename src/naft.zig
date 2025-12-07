@@ -7,16 +7,14 @@ const Error = error{
 pub const Node = struct {
     const Self = @This();
 
-    io: ?*std.Io.Writer,
-    level: usize,
+    w: ?*std.Io.Writer,
+
+    level: usize = 0,
     // Indicates if this Node already contains nested elements (Text, Node). This is used to add a closing '}' upon deinit().
     has_block: bool = false,
     // Indicates if this Node already contains a Node. This is used for deciding newlines etc.
     has_node: bool = false,
 
-    pub fn init(io: ?*std.Io.Writer) Node {
-        return Node{ .io = io, .level = 0, .has_block = true, .has_node = true };
-    }
     pub fn deinit(self: Self) void {
         if (self.level == 0)
             // The top-level block does not need any handling
@@ -33,7 +31,7 @@ pub const Node = struct {
 
     pub fn node(self: *Self, name: []const u8) Node {
         self.ensure_block(true);
-        const n = Node{ .io = self.io, .level = self.level + 1 };
+        const n = Node{ .w = self.w, .level = self.level + 1 };
         n.indent();
         n.print("[{s}]", .{name});
         return n;
@@ -94,7 +92,7 @@ pub const Node = struct {
     }
 
     fn print(self: Self, comptime fmtstr: []const u8, args: anytype) void {
-        if (self.io) |io| {
+        if (self.w) |io| {
             io.print(fmtstr, args) catch {};
             io.flush() catch {};
         } else {
@@ -104,7 +102,7 @@ pub const Node = struct {
 };
 
 test "naft" {
-    var root = Node.init(null);
+    var root = Node{ .w = null };
     defer root.deinit();
     {
         var a = root.node("a");
