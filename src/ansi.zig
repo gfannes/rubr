@@ -2,16 +2,16 @@ const std = @import("std");
 
 pub const Style = struct {
     const Self = @This();
+    pub const Ground = struct {
+        pub const Color = enum(u8) { Black = 0, Red, Green, Yellow, Blue, Magenta, Cyan, White };
+        color: Color,
+        intense: bool = false,
+    };
 
-    pub const Color = enum(u8) { Black = 0, Red, Green, Yellow, Blue, Magenta, Cyan, White };
-    pub const Intensity = enum(u8) { Low = 0, High = 60 };
-
-    fgc: ?Color = null,
-    fgi: Intensity = .Low,
-
-    bgc: ?Color = null,
-    bgi: Intensity = .Low,
-
+    fg: ?Ground = null,
+    bg: ?Ground = null,
+    bold: bool = false,
+    underline: bool = false,
     reset: bool = false,
 
     pub fn format(self: Self, w: *std.Io.Writer) !void {
@@ -20,13 +20,26 @@ pub const Style = struct {
             try w.print("[0", .{});
         } else {
             var prefix: u8 = '[';
-            if (self.fgc) |fgc| {
-                const code: u8 = 30 + @intFromEnum(fgc) + @intFromEnum(self.fgi);
+            if (!self.bold and !self.underline) {
+                try w.print("{c}0", .{prefix});
+                prefix = ';';
+            } else {
+                if (self.bold) {
+                    try w.print("{c}1", .{prefix});
+                    prefix = ';';
+                }
+                if (self.underline) {
+                    try w.print("{c}4", .{prefix});
+                    prefix = ';';
+                }
+            }
+            if (self.fg) |g| {
+                const code: u8 = 30 + @intFromEnum(g.color) + @as(u8, @intFromBool(g.intense)) * 60;
                 try w.print("{c}{}", .{ prefix, code });
                 prefix = ';';
             }
-            if (self.bgc) |bgc| {
-                const code: u8 = 40 + @intFromEnum(bgc) + @intFromEnum(self.bgi);
+            if (self.bg) |g| {
+                const code: u8 = 40 + @intFromEnum(g.color) + @as(u8, @intFromBool(g.intense)) * 60;
                 try w.print("{c}{}", .{ prefix, code });
                 prefix = ';';
             }
@@ -36,6 +49,6 @@ pub const Style = struct {
 };
 
 test "ansi" {
-    std.debug.print("{f}Hello {f}World{f}\n", .{ Style{ .fgc = .Green }, Style{ .fgc = .Green, .fgi = .High, .bgc = .Magenta }, Style{ .reset = true } });
+    std.debug.print("{f}Hello {f}World{f}\n", .{ Style{ .fg = .{ .color = .Green } }, Style{ .fg = .{ .color = .Green, .intense = true }, .bg = .{ .color = .Magenta } }, Style{ .reset = true } });
     std.debug.print("Normal text\n", .{});
 }
