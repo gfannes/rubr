@@ -25,6 +25,7 @@ pub const twig = @import("twig.zig");
 pub const fs = @import("fs.zig");
 pub const fmt = @import("fmt.zig");
 pub const datex = @import("datex.zig");
+pub const ansi = @import("ansi.zig");
 
 test {
     ut.refAllDecls(@This());
@@ -52,4 +53,5 @@ test {
     ut.refAllDecls(fs);
     ut.refAllDecls(fmt);
     ut.refAllDecls(datex);
+    ut.refAllDecls(ansi);
 }
