@@ -15,34 +15,31 @@ pub const Style = struct {
     reset: bool = false,
 
     pub fn format(self: Self, w: *std.Io.Writer) !void {
+        var print = struct {
+            w: *std.Io.Writer,
+            prefix: u8 = '[',
+            fn value(my: *@This(), n: u8) !void {
+                try my.w.print("{c}{}", .{ my.prefix, n });
+                my.prefix = ';';
+            }
+        }{ .w = w };
+
         try w.writeByte(0x1b);
         if (self.reset) {
-            try w.print("[0", .{});
+            try print.value(0);
         } else {
-            var prefix: u8 = '[';
             if (!self.bold and !self.underline) {
-                try w.print("{c}0", .{prefix});
-                prefix = ';';
+                try print.value(0);
             } else {
-                if (self.bold) {
-                    try w.print("{c}1", .{prefix});
-                    prefix = ';';
-                }
-                if (self.underline) {
-                    try w.print("{c}4", .{prefix});
-                    prefix = ';';
-                }
+                if (self.bold)
+                    try print.value(1);
+                if (self.underline)
+                    try print.value(4);
             }
-            if (self.fg) |g| {
-                const code: u8 = 30 + @intFromEnum(g.color) + @as(u8, @intFromBool(g.intense)) * 60;
-                try w.print("{c}{}", .{ prefix, code });
-                prefix = ';';
-            }
-            if (self.bg) |g| {
-                const code: u8 = 40 + @intFromEnum(g.color) + @as(u8, @intFromBool(g.intense)) * 60;
-                try w.print("{c}{}", .{ prefix, code });
-                prefix = ';';
-            }
+            if (self.fg) |g|
+                try print.value(30 + @intFromEnum(g.color) + @as(u8, @intFromBool(g.intense)) * 60);
+            if (self.bg) |g|
+                try print.value(40 + @intFromEnum(g.color) + @as(u8, @intFromBool(g.intense)) * 60);
         }
         try w.print("m", .{});
     }
