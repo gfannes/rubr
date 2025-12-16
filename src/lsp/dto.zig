@@ -18,6 +18,9 @@ pub const Request = struct {
         contentChanges: ?[]ContentChange = null,
         position: ?Position = null,
         context: ?ReferenceContext = null,
+        range: ?Range = null,
+        command: ?String = null,
+        arguments: ?[]const String = null,
     };
 
     jsonrpc: String,
@@ -49,6 +52,7 @@ pub const ReferenceContext = struct {
     includeDeclaration: ?bool = null,
     triggerCharacter: ?String = null,
     triggerKind: ?u32 = null,
+    diagnostics: ?[]Diagnostic = null,
 };
 
 pub const Position = struct {
@@ -106,6 +110,17 @@ pub const ClientInfo = struct {
 pub const CompletionItem = struct {
     label: String,
     kind: u32,
+};
+
+pub const Diagnostic = struct {
+    range: Range,
+    message: String,
+};
+
+pub const Command = struct {
+    title: String,
+    command: String,
+    arguments: ?[]const String = null,
 };
 
 pub const ClientCapabilities = struct {
@@ -249,6 +264,9 @@ pub const ServerCapabilities = struct {
     pub const CompletionOptions = struct {
         triggerCharacters: ?[]const String = null,
     };
+    pub const ExecuteCommandOptions = struct {
+        commands: []const String,
+    };
 
     textDocumentSync: ?TextDocumentSyncOptions = null,
     completionProvider: ?CompletionOptions = null,
@@ -259,6 +277,8 @@ pub const ServerCapabilities = struct {
     typeDefinitionProvider: ?bool = null,
     implementationProvider: ?bool = null,
     referencesProvider: ?bool = null,
+    codeActionProvider: ?bool = null,
+    executeCommandProvider: ?ExecuteCommandOptions = null,
     workspace: ?Workspace = null,
 };
 
