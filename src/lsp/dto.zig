@@ -21,6 +21,7 @@ pub const Request = struct {
         range: ?Range = null,
         command: ?String = null,
         arguments: ?[]const String = null,
+        event: ?Event = null,
     };
 
     jsonrpc: String,
@@ -63,6 +64,11 @@ pub const Position = struct {
 pub const Range = struct {
     start: Position = .{},
     end: Position = .{},
+};
+
+pub const Event = struct {
+    added: []WorkspaceFolder = &.{},
+    removed: []WorkspaceFolder = &.{},
 };
 
 pub const DocumentSymbol = struct {
