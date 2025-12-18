@@ -23,6 +23,13 @@ pub fn countIf(T: type, slice: []const T, predicate: anytype) usize {
     return count;
 }
 
+pub fn indexOfFirst(T: type, slice: []const T, predicate: anytype) ?usize {
+    for (slice, 0..) |el, ix0|
+        if (predicate.call(el))
+            return ix0;
+    return null;
+}
+
 test "algo" {
     const ut = std.testing;
 

@@ -15,6 +15,9 @@ pub const Node = struct {
     // Indicates if this Node already contains a Node. This is used for deciding newlines etc.
     has_node: bool = false,
 
+    pub fn root(w: ?*std.Io.Writer) Node {
+        return .{ .w = w, .has_block = true };
+    }
     pub fn deinit(self: Self) void {
         if (self.level == 0)
             // The top-level block does not need any handling
@@ -34,6 +37,13 @@ pub const Node = struct {
         const n = Node{ .w = self.w, .level = self.level + 1 };
         n.indent();
         n.print("[{s}]", .{name});
+        return n;
+    }
+    pub fn node2(self: *Self, name: []const u8, name2: []const u8) Node {
+        self.ensure_block(true);
+        const n = Node{ .w = self.w, .level = self.level + 1 };
+        n.indent();
+        n.print("[{s}:{s}]", .{ name, name2 });
         return n;
     }
 
@@ -102,7 +112,7 @@ pub const Node = struct {
 };
 
 test "naft" {
-    var root = Node{ .w = null };
+    var root = Node.root(null);
     defer root.deinit();
     {
         var a = root.node("a");

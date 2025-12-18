@@ -1,4 +1,5 @@
 const std = @import("std");
+const naft = @import("naft.zig");
 
 pub const Range = struct {
     const Self = @This();
@@ -11,6 +12,13 @@ pub const Range = struct {
     }
     pub fn size(self: Self) usize {
         return self.end - self.begin;
+    }
+
+    pub fn write(self: Self, parent: *naft.Node, name: []const u8) void {
+        var n = parent.node2("idx.Range", name);
+        defer n.deinit();
+        n.attr("begin", self.begin);
+        n.attr("end", self.end);
     }
 };
 
