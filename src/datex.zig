@@ -21,20 +21,29 @@ pub const Date = struct {
     epoch_day: std.time.epoch.EpochDay,
 
     pub fn today() !Date {
-        var esecs = std.time.epoch.EpochSeconds{ .secs = 0 };
         if (builtin.os.tag == .windows) {
             var st: SYSTEMTIME = undefined;
-            // Local time (uses current Windows time zone settings). :contentReference[oaicite:2]{index=2}
             GetLocalTime(&st);
-            std.debug.print(
-                "local: {d:04}-{d:02}-{d:02} {d:02}:{d:02}:{d:02}.{d:03}\n",
-                .{ st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds },
-            );
+
+            var day: u47 = 0;
+            {
+                var year: u16 = 1970;
+                for (1970..st.wYear) |y| {
+                    year = @intCast(y);
+                    day += std.time.epoch.getDaysInYear(year);
+                }
+                for (1..st.wMonth) |m| {
+                    day += std.time.epoch.getDaysInMonth(year, @enumFromInt(m));
+                }
+                day += st.wDay - 1;
+            }
+
+            return .{ .epoch_day = .{ .day = day } };
         } else {
             const time = try std.posix.clock_gettime(.REALTIME);
-            esecs.secs = @intCast(time.sec);
+            const esecs = std.time.epoch.EpochSeconds{ .secs = @intCast(time.sec) };
+            return .{ .epoch_day = esecs.getEpochDay() };
         }
-        return .{ .epoch_day = esecs.getEpochDay() };
     }
 
     pub fn fromEpochDays(days: u47) Date {
