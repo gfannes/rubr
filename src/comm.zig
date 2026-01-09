@@ -339,11 +339,11 @@ test "leaf" {
 
     // Create a file with some leaf data
     {
-        const file = try std.fs.cwd().createFile(filename, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().createFile(ut.io, filename, .{});
+        defer file.close(ut.io);
 
         var buffer: [1024]u8 = undefined;
-        var writer = file.writer(&buffer);
+        var writer = file.writer(ut.io, &buffer);
         defer writer.interface.flush() catch {};
 
         const tw = TreeWriter{ .out = &writer.interface };
@@ -357,8 +357,8 @@ test "leaf" {
 
     // Read the content using wrapper classes
     {
-        const file = try std.fs.cwd().openFile(filename, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().openFile(ut.io, filename, .{});
+        defer file.close(ut.io);
 
         var buffer: [1024]u8 = undefined;
         var reader = file.reader(ut.io, &buffer);
@@ -389,8 +389,8 @@ test "leaf" {
 
     // Read the content using primitive data types
     {
-        const file = try std.fs.cwd().openFile(filename, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().openFile(ut.io, filename, .{});
+        defer file.close(ut.io);
 
         var buffer: [1024]u8 = undefined;
         var reader = file.reader(ut.io, &buffer);
@@ -409,6 +409,8 @@ test "leaf" {
 }
 
 test "composite" {
+    const ut = std.testing;
+
     const Composite = struct {
         const Self = @This();
         str: []const u8 = "composite",
@@ -420,11 +422,11 @@ test "composite" {
         }
     };
 
-    const file = try std.fs.cwd().createFile("composite.dat", .{});
-    defer file.close();
+    const file = try std.Io.Dir.cwd().createFile(ut.io, "composite.dat", .{});
+    defer file.close(ut.io);
 
     var buffer: [1024]u8 = undefined;
-    var writer = file.writer(&buffer);
+    var writer = file.writer(ut.io, &buffer);
     defer writer.interface.flush() catch {};
 
     const tw = TreeWriter{ .out = &writer.interface };

@@ -133,9 +133,9 @@ pub const Client = struct {
     const Self = @This();
     const Buffer = std.ArrayList(u8);
 
-    in: std.fs.File.Reader,
-    out: std.fs.File.Writer,
-    log: ?std.fs.File.Writer,
+    in: std.Io.File.Reader,
+    out: *std.Io.Writer,
+    log: ?*std.Io.Writer,
     a: std.mem.Allocator,
 
     content_length: ?usize = null,
@@ -146,7 +146,7 @@ pub const Client = struct {
 
     res_initialize: dto.Response(dto.InitializeResult) = undefined,
 
-    pub fn init(in: std.fs.File.Reader, out: std.fs.File.Writer, log: ?std.fs.File.Writer, a: std.mem.Allocator) Self {
+    pub fn init(in: std.Io.File.Reader, out: *std.Io.Writer, log: ?*std.Io.Writer, a: std.mem.Allocator) Self {
         return Self{
             .in = in,
             .out = out,

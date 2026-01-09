@@ -24,7 +24,7 @@ pub const Ignore = struct {
         }
     }
 
-    pub fn initFromFile(dir: std.fs.Dir, name: []const u8, a: std.mem.Allocator) !Self {
+    pub fn initFromFile(dir: std.Io.Dir, name: []const u8, a: std.mem.Allocator) !Self {
         const file = try dir.openFile(name, .{});
         defer file.close();
 

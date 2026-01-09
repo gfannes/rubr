@@ -1,8 +1,10 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const Env = @import("Env.zig");
 
 pub const Error = error{
     BufferTooSmall,
+    CouldNotFindHome,
 };
 
 pub const Path = struct {
@@ -57,48 +59,53 @@ test "fs.Path" {
     try ut.expectEqualStrings("abc/def", p.path());
 }
 
-pub fn homePathAlloc(a: std.mem.Allocator, maybe_part: ?[]const u8) ![]u8 {
-    // &todo: Support Windows
-    var home_buf: [std.fs.max_path_bytes]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&home_buf);
+pub fn homePathAlloc(env: Env, maybe_part: ?[]const u8) ![]u8 {
     const name = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
-    const home = try std.process.getEnvVarOwned(fba.allocator(), name);
+    const home = env.envmap.get(name) orelse return error.CouldNotFindHome;
     return if (maybe_part) |part|
-        try std.mem.concat(a, u8, &[_][]const u8{ home, "/", part })
+        try std.mem.concat(env.a, u8, &[_][]const u8{ home, "/", part })
     else
-        try a.dupe(u8, home);
+        try env.a.dupe(u8, home);
 }
 
-pub fn cwdPathAlloc(a: std.mem.Allocator, maybe_part: ?[]const u8) ![]u8 {
-    return try std.fs.cwd().realpathAlloc(a, maybe_part orelse ".");
+pub fn cwdPathAlloc(io: std.Io, a: std.mem.Allocator, maybe_part: ?[]const u8) ![]u8 {
+    return try std.Io.Dir.cwd().realPathFileAlloc(io, maybe_part orelse ".", a);
 }
 
-pub fn isDirectory(path: []const u8) bool {
+pub fn isDirectory(io: std.Io, path: []const u8) bool {
     const err_dir =
         if (std.fs.path.isAbsolute(path))
-            std.fs.openDirAbsolute(path, .{})
+            std.Io.Dir.openDirAbsolute(io, path, .{})
         else
-            std.fs.cwd().openDir(path, .{});
+            std.Io.Dir.cwd().openDir(io, path, .{});
     return if (err_dir) |_| true else |_| false;
 }
 
-pub fn deleteTree(path: []const u8) !void {
-    if (std.fs.path.isAbsolute(path))
-        try std.fs.deleteTreeAbsolute(path)
-    else
-        try std.fs.cwd().deleteTree(path);
+pub fn deleteTree(io: std.Io, path: []const u8) !void {
+    if (std.fs.path.isAbsolute(path)) {
+        var dir = try std.Io.Dir.openDirAbsolute(io, path, .{});
+        defer dir.close(io);
+        try dir.deleteTree(io, ".");
+    } else try std.Io.Dir.cwd().deleteTree(io, path);
 }
 
 test "fs" {
     const ut = std.testing;
 
+    var envmap = try std.process.Environ.empty.createMap(ut.allocator);
+    defer envmap.deinit();
+    const name = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
+    try envmap.put(name, "/home/geertf");
+
+    const env = Env{ .a = ut.allocator, .io = ut.io, .envmap = &envmap };
+
     {
-        const home = try homePathAlloc(ut.allocator, null);
+        const home = try homePathAlloc(env, null);
         defer ut.allocator.free(home);
 
         std.debug.print("home: {s}\n", .{home});
     }
 
-    try ut.expect(isDirectory("src"));
-    try ut.expect(!isDirectory("not_a_dir"));
+    try ut.expect(isDirectory(ut.io, "src"));
+    try ut.expect(!isDirectory(ut.io, "not_a_dir"));
 }

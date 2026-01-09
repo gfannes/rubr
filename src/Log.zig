@@ -10,11 +10,13 @@ const Autoclean = struct {
     filepath: []const u8 = &.{},
 };
 
+io: std.Io,
+
 _do_close: bool = false,
-_file: std.fs.File = undefined,
+_file: std.Io.File = undefined,
 
 _buffer: [1024]u8 = undefined,
-_writer: std.fs.File.Writer = undefined,
+_writer: std.Io.File.Writer = undefined,
 
 _io: *std.Io.Writer = undefined,
 
@@ -23,13 +25,13 @@ _lvl: usize = 0,
 _autoclean: ?Autoclean = null,
 
 pub fn init(self: *Self) void {
-    self._file = std.fs.File.stdout();
+    self._file = std.Io.File.stdout();
     self.initWriter();
 }
 pub fn deinit(self: *Self) void {
     self.closeWriter() catch {};
     if (self._autoclean) |autoclean| {
-        std.fs.deleteFileAbsolute(autoclean.filepath) catch {};
+        std.Io.Dir.deleteFileAbsolute(self.io, autoclean.filepath) catch {};
     }
 }
 
@@ -70,7 +72,7 @@ pub fn toFile(self: *Self, filepath: []const u8, options: Options) !void {
     };
 
     if (std.fs.path.isAbsolute(filepath_clean)) {
-        self._file = try std.fs.createFileAbsolute(filepath_clean, .{});
+        self._file = try std.Io.Dir.createFileAbsolute(self.io, filepath_clean, .{});
         if (options.autoclean) {
             self._autoclean = undefined;
             const fp = self._autoclean.?.buffer[0..filepath_clean.len];
@@ -80,7 +82,7 @@ pub fn toFile(self: *Self, filepath: []const u8, options: Options) !void {
             }
         }
     } else {
-        self._file = try std.fs.cwd().createFile(filepath_clean, .{});
+        self._file = try std.Io.Dir.cwd().createFile(self.io, filepath_clean, .{});
     }
     self._do_close = true;
 
@@ -116,13 +118,13 @@ pub fn level(self: Self, lvl: usize) ?*std.Io.Writer {
 }
 
 fn initWriter(self: *Self) void {
-    self._writer = self._file.writer(&self._buffer);
+    self._writer = self._file.writer(self.io, &self._buffer);
     self._io = &self._writer.interface;
 }
 fn closeWriter(self: *Self) !void {
     try self._io.flush();
     if (self._do_close) {
-        self._file.close();
+        self._file.close(self.io);
         self._do_close = false;
     }
 }
@@ -131,7 +133,7 @@ test "log" {
     const ut = std.testing;
     try ut.expect(true);
 
-    var log = Self{};
+    var log = Self{ .io = ut.io };
     log.init();
     defer log.deinit();
 

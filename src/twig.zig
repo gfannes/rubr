@@ -1,4 +1,5 @@
 const std = @import("std");
+const Env = @import("Env.zig");
 
 // Twig markers are used to annotate a stream of logging data with structure.
 // These markers can indicate:
@@ -47,17 +48,18 @@ const std = @import("std");
 pub const Root = struct {
     valid: bool = false,
     a: std.mem.Allocator = undefined,
-    writer: std.fs.File.Writer = undefined,
+    io: std.Io = undefined,
+    writer: std.Io.File.Writer = undefined,
     mutex: std.Thread.Mutex = .{},
     current: ?*Scope = null,
 
-    pub fn init(self: *Root, a: std.mem.Allocator, file: std.fs.File, buffer: []u8) void {
+    pub fn init(self: *Root, env: Env, file: std.Io.File, buffer: []u8) void {
         std.debug.assert(!self.valid);
-        self.* = .{ .valid = true, .a = a, .writer = file.writer(buffer), .current = null };
+        self.* = .{ .valid = true, .a = env.a, .io = env.io, .writer = file.writer(env.io, buffer), .current = null };
     }
     pub fn deinit(self: *Root) void {
         std.debug.assert(self.valid);
-        self.writer.interface.flush() catch {};
+        self.writer.flush() catch {};
         self.valid = false;
     }
 };
@@ -167,8 +169,10 @@ const Marker = struct {
 test "twig" {
     const ut = std.testing;
 
+    const env = Env{ .a = ut.allocator, .io = ut.io };
+
     var buf: [10]u8 = undefined;
-    root.init(ut.allocator, std.fs.File.stderr(), &buf);
+    root.init(env, std.Io.File.stderr(), &buf);
     defer root.deinit();
 
     var ci = Scope{ .name = "ci" };

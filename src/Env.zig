@@ -9,6 +9,7 @@ a: std.mem.Allocator = undefined,
 aa: std.mem.Allocator = undefined,
 
 io: std.Io = undefined,
+envmap: *const std.process.Environ.Map = undefined,
 
 log: *const Log = undefined,
 
@@ -20,13 +21,13 @@ pub const Instance = struct {
     const GPA = std.heap.GeneralPurposeAllocator(.{});
     const AA = std.heap.ArenaAllocator;
     const StdIO = struct {
-        stdout_writer: std.fs.File.Writer = undefined,
-        stderr_writer: std.fs.File.Writer = undefined,
+        stdout_writer: std.Io.File.Writer = undefined,
+        stderr_writer: std.Io.File.Writer = undefined,
         stdout_buffer: [4096]u8 = undefined,
         stderr_buffer: [4096]u8 = undefined,
-        fn init(self: *@This()) void {
-            self.stdout_writer = std.fs.File.stdout().writer(&self.stdout_buffer);
-            self.stderr_writer = std.fs.File.stderr().writer(&self.stderr_buffer);
+        fn init(self: *@This(), io: std.Io) void {
+            self.stdout_writer = std.Io.File.stdout().writer(io, &self.stdout_buffer);
+            self.stderr_writer = std.Io.File.stderr().writer(io, &self.stderr_buffer);
         }
         fn deinit(self: *@This()) void {
             self.stdout_writer.interface.flush() catch {};
@@ -34,6 +35,8 @@ pub const Instance = struct {
         }
     };
 
+    environ: std.process.Environ = std.process.Environ.empty,
+    envmap: std.process.Environ.Map = undefined,
     log: Log = undefined,
     gpa: GPA = undefined,
     aa: AA = undefined,
@@ -42,22 +45,26 @@ pub const Instance = struct {
     stdio: StdIO = undefined,
 
     pub fn init(self: *Self) void {
-        self.log = Log{};
-        self.log.init();
         self.gpa = GPA{};
-        self.aa = AA.init(self.gpa.allocator());
-        self.io = std.Io.Threaded.init(self.gpa.allocator());
+        const a = self.gpa.allocator();
+        self.envmap = self.environ.createMap(a) catch std.process.Environ.Map.init(a);
+        self.aa = AA.init(a);
+        self.io = std.Io.Threaded.init(a, .{ .environ = self.environ });
+        const io = self.io.io();
+        self.log = Log{ .io = io };
+        self.log.init();
         self.maybe_start = std.time.Instant.now() catch null;
-        self.stdio.init();
+        self.stdio.init(io);
     }
     pub fn deinit(self: *Self) void {
         self.stdio.deinit();
+        self.log.deinit();
         self.io.deinit();
         self.aa.deinit();
+        self.envmap.deinit();
         if (self.gpa.deinit() == .leak) {
             self.log.err("Found memory leaks in Env\n", .{}) catch {};
         }
-        self.log.deinit();
     }
 
     pub fn env(self: *Self) Env_ {
@@ -65,6 +72,7 @@ pub const Instance = struct {
             .a = self.gpa.allocator(),
             .aa = self.aa.allocator(),
             .io = self.io.io(),
+            .envmap = &self.envmap,
             .log = &self.log,
             .stdout = &self.stdio.stdout_writer.interface,
             .stderr = &self.stdio.stderr_writer.interface,

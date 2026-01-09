@@ -27,7 +27,7 @@ pub const Walker = struct {
     filter: Filter = .{},
 
     // We keep track of the current path as a []const u8. If the caller has to do this,
-    // he has to use Dir.realpath() which is less efficient.
+    // he has to use Dir.realPath() which is less efficient.
     buffer: [std.fs.max_path_bytes]u8 = undefined,
     path: []const u8 = &.{},
     base: usize = undefined,
@@ -45,16 +45,17 @@ pub const Walker = struct {
     }
 
     // cb() is passed:
-    // - dir: std.fs.Dir
+    // - dir: std.Io.Dir
     // - path: full path of file/folder
     // - offsets: optional offsets for basename and filename. Only for the toplevel Enter/Leave is this null to avoid out of bound reading
     // - kind: Enter/Leave/File
-    pub fn walk(self: *Walker, basedir: std.fs.Dir, cb: anytype) !void {
-        self.path = try basedir.realpath(".", &self.buffer);
+    pub fn walk(self: *Walker, basedir: std.Io.Dir, cb: anytype) !void {
+        const len = try basedir.realPathFile(self.env.io, ".", &self.buffer);
+        self.path = self.buffer[0..len];
         self.base = self.path.len + 1;
 
-        var dir = try basedir.openDir(".", .{ .iterate = true });
-        defer dir.close();
+        var dir = try basedir.openDir(self.env.io, ".", .{ .iterate = true });
+        defer dir.close(self.env.io);
 
         const path = self.path;
 
@@ -63,13 +64,13 @@ pub const Walker = struct {
         try cb.call(dir, path, null, Kind.Leave);
     }
 
-    fn _walk(self: *Walker, dir: std.fs.Dir, cb: anytype) !void {
+    fn _walk(self: *Walker, dir: std.Io.Dir, cb: anytype) !void {
         var added_ignore = false;
 
-        if (dir.openFile(".gitignore", .{})) |file| {
-            defer file.close();
+        if (dir.openFile(self.env.io, ".gitignore", .{})) |file| {
+            defer file.close(self.env.io);
 
-            const stat = try file.stat();
+            const stat = try file.stat(self.env.io);
 
             var ig = Ignore{ .buffer = try Buffer.initCapacity(self.env.a, stat.size) };
             try ig.buffer.resize(self.env.a, stat.size);
@@ -87,7 +88,7 @@ pub const Walker = struct {
         } else |_| {}
 
         var it = dir.iterate();
-        while (try it.next()) |el| {
+        while (try it.next(self.env.io)) |el| {
             if (!self.filter.call(dir, el))
                 continue;
 
@@ -98,7 +99,7 @@ pub const Walker = struct {
             self._append_to_path(el.name);
 
             switch (el.kind) {
-                std.fs.File.Kind.file => {
+                std.Io.File.Kind.file => {
                     if (slc.last(self.ignore_stack.items)) |e| {
                         const ignore_path = self.path[self.ignore_offset..];
                         if (e.ignore.match(ignore_path))
@@ -107,15 +108,15 @@ pub const Walker = struct {
 
                     try cb.call(dir, self.path, offsets, Kind.File);
                 },
-                std.fs.File.Kind.directory => {
+                std.Io.File.Kind.directory => {
                     if (slc.last(self.ignore_stack.items)) |e| {
                         const ignore_path = self.path[self.ignore_offset..];
                         if (e.ignore.match(ignore_path))
                             continue;
                     }
 
-                    var subdir = try dir.openDir(el.name, .{ .iterate = true });
-                    defer subdir.close();
+                    var subdir = try dir.openDir(self.env.io, el.name, .{ .iterate = true });
+                    defer subdir.close(self.env.io);
 
                     const path = self.path;
 
@@ -156,7 +157,7 @@ pub const Filter = struct {
     // Skip files with following extensions. Include '.' in extension.
     extensions: []const []const u8 = &.{},
 
-    fn call(self: Filter, _: std.fs.Dir, entry: std.fs.Dir.Entry) bool {
+    fn call(self: Filter, _: std.Io.Dir, entry: std.Io.Dir.Entry) bool {
         if (self.hidden and is_hidden(entry.name))
             return false;
 
@@ -184,10 +185,10 @@ test "walk" {
     walker.filter = .{ .extensions = &[_][]const u8{ ".o", ".exe" } };
 
     var cb = struct {
-        pub fn call(_: *@This(), dir: std.fs.Dir, path: []const u8, maybe_offsets: ?Offsets, kind: Kind) !void {
+        pub fn call(_: *@This(), dir: std.Io.Dir, path: []const u8, maybe_offsets: ?Offsets, kind: Kind) !void {
             std.debug.print("dir: {}, path: {s}, offsets: {?}, kind: {}\n", .{ dir, path, maybe_offsets, kind });
         }
     }{};
 
-    try walker.walk(std.fs.cwd(), &cb);
+    try walker.walk(std.Io.Dir.cwd(), &cb);
 }

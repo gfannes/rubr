@@ -8,16 +8,16 @@ pub const Args = struct {
     env: Env,
     argv: [][]const u8 = &.{},
 
-    pub fn setupFromOS(self: *Self) !void {
+    pub fn setupFromOS(self: *Self, os_args: std.process.Args) !void {
         const a = self.env.aa;
 
-        const os_argv = try std.process.argsAlloc(a);
-        defer std.process.argsFree(a, os_argv);
+        self.argv = try a.alloc([]const u8, os_args.vector.len);
 
-        self.argv = try a.alloc([]const u8, os_argv.len);
-
-        for (os_argv, 0..) |str, ix| {
-            self.argv[ix] = try a.dupe(u8, str);
+        var it = os_args.iterate();
+        var ix: usize = 0;
+        while (it.next()) |os_arg| {
+            self.argv[ix] = try a.dupe(u8, os_arg);
+            ix += 1;
         }
     }
     pub fn setupFromData(self: *Self, argv: []const []const u8) !void {
