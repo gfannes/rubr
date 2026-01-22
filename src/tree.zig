@@ -103,20 +103,18 @@ pub fn Tree(Data: type) type {
             return d;
         }
 
-        pub fn dfsAll(self: *Self, before: bool, cb: anytype) CallbackErrorSet(@TypeOf(cb.*))!void {
+        pub fn dfsAll(self: *Self, cb: anytype) CallbackErrorSet(@TypeOf(cb.*))!void {
             for (self.root_ids.items) |root_id| {
-                try self.dfs(root_id, before, cb);
+                try self.dfs(root_id, cb);
             }
         }
-        pub fn dfs(self: *Self, id: Id, before: bool, cb: anytype) CallbackErrorSet(@TypeOf(cb.*))!void {
+        pub fn dfs(self: *Self, id: Id, cb: anytype) CallbackErrorSet(@TypeOf(cb.*))!void {
             const n = &self.nodes.items[id];
             const entry = Entry{ .id = id, .data = &n.data };
-            if (before)
-                try cb.call(entry);
+            try cb.call(entry, true);
             for (n.child_ids.items) |child_id|
-                try self.dfs(child_id, before, cb);
-            if (!before)
-                try cb.call(entry);
+                try self.dfs(child_id, cb);
+            try cb.call(entry, false);
         }
 
         pub fn each(self: *Self, cb: anytype) CallbackErrorSet(@TypeOf(cb.*))!void {
@@ -177,10 +175,12 @@ test "tree" {
         const MyTree = Tree(Data);
         tree: *MyTree,
 
-        pub fn call(my: Self, entry: MyTree.Entry) !void {
+        pub fn call(my: Self, entry: MyTree.Entry, before: bool) !void {
+            if (!before)
+                return;
             std.debug.print("{} {} {}\n", .{ entry.id, entry.data.i, try my.tree.depth(entry.id) });
         }
     }{ .tree = &tree };
 
-    try tree.dfsAll(true, &cb);
+    try tree.dfsAll(&cb);
 }
