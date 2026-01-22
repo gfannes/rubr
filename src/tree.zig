@@ -65,6 +65,9 @@ pub fn Tree(Data: type) type {
         pub fn childIds(self: Self, parent_id: Id) []const Id {
             return self.nodes.items[parent_id].child_ids.items;
         }
+        pub fn childIdsMut(self: *Self, parent_id: Id) []Id {
+            return self.nodes.items[parent_id].child_ids.items;
+        }
 
         pub fn addChild(self: *Self, maybe_parent_id: ?Id) !Entry {
             var ids: *Ids = undefined;
