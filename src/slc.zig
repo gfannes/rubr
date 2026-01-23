@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn is_empty(slice: anytype) bool {
+pub fn isEmpty(slice: anytype) bool {
     return slice.len == 0;
 }
 
@@ -31,7 +31,7 @@ test {
 
     {
         slice = &.{};
-        try ut.expectEqual(true, is_empty(slice));
+        try ut.expectEqual(true, isEmpty(slice));
         try ut.expectEqual(null, first(slice));
         try ut.expectEqual(null, firstPtr(slice));
         try ut.expectEqual(null, last(slice));
@@ -39,7 +39,7 @@ test {
     }
     {
         slice = "abc";
-        try ut.expectEqual(false, is_empty(slice));
+        try ut.expectEqual(false, isEmpty(slice));
         try ut.expectEqual(@as(?u8, 'a'), first(slice));
         try ut.expectEqual(@as(?u8, 'a'), (firstPtr(slice) orelse unreachable).*);
         try ut.expectEqual(@as(?u8, 'c'), last(slice));

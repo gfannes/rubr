@@ -16,7 +16,7 @@ pub const Pipe = struct {
         cond: std.Thread.Condition = .{},
             data: [2][]u8 = undefined,
 
-        fn is_empty(i: @This()) bool {
+        fn isEmpty(i: @This()) bool {
             return i.len == 0;
         }
         fn is_full(i: @This()) bool {
@@ -186,7 +186,7 @@ pub const Pipe = struct {
             intern.mutex.lock();
             defer intern.mutex.unlock();
 
-            while (intern.is_empty()) {
+            while (intern.isEmpty()) {
                 intern.cond.wait(&intern.mutex);
             }
 

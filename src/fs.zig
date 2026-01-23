@@ -68,7 +68,7 @@ pub fn homePathAlloc(env: Env, maybe_part: ?[]const u8) ![]u8 {
         try env.a.dupe(u8, home);
 }
 
-pub fn cwdPathAlloc(io: std.Io, a: std.mem.Allocator, maybe_part: ?[]const u8) ![]u8 {
+pub fn cwdPathAlloc(io: std.Io, a: std.mem.Allocator, maybe_part: ?[]const u8) ![:0]u8 {
     return try std.Io.Dir.cwd().realPathFileAlloc(io, maybe_part orelse ".", a);
 }
 
