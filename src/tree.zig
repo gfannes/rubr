@@ -121,6 +121,16 @@ pub fn Tree(Data: type) type {
             for (self.nodes.items, 0..) |*node, id|
                 try cb.call(Entry{ .id = id, .data = &node.data });
         }
+
+        pub fn toRoot(self: *Self, id: Id, cb: anytype) void {
+            var entry = Entry{ .id = id, .data = self.get(id) catch return };
+            cb.call(&entry);
+
+            while (self.parent(entry.id) catch return) |pentry| {
+                entry = pentry;
+                cb.call(&entry);
+            }
+        }
     };
 }
 
