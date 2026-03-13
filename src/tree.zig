@@ -23,8 +23,8 @@ pub fn Tree(Data: type) type {
         const Nodes = std.ArrayList(Node);
 
         a: std.mem.Allocator,
-        nodes: Nodes = .{},
-        root_ids: Ids = .{},
+        nodes: Nodes = .empty,
+        root_ids: Ids = .empty,
 
         pub fn init(a: std.mem.Allocator) Self {
             return Self{ .a = a };
@@ -83,7 +83,7 @@ pub fn Tree(Data: type) type {
             try ids.append(self.a, child_id);
 
             const child = try self.nodes.addOne(self.a);
-            child.child_ids = Ids{};
+            child.child_ids = Ids.empty;
             child.parent_id = maybe_parent_id;
 
             return Entry{ .id = child_id, .data = &child.data };

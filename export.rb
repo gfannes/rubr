@@ -34,8 +34,8 @@ class Mod
     File.open(@fp) do |fi|
       fi.each_line do |line|
         line.chomp!
-        if md = /^const (.+) = @import\("(.+)"\);/.match(line)
-          name, file = md[1], md[2]
+        if md = /^(pub )?const (.+) = @import\("(.+)"\);/.match(line)
+          pub, name, file = md[1], md[2], md[3]
           if !%w[std builtin].include?(file)
             fp = (@fp.dirname/file).cleanpath
             basename = File.basename(fp, '.zig')

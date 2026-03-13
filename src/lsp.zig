@@ -23,7 +23,7 @@ pub const Server = struct {
     a: std.mem.Allocator,
 
     content_length: ?usize = null,
-    content: Buffer = .{},
+    content: Buffer = .empty,
 
     aa: std.heap.ArenaAllocator,
     request: ?dto.Request = null,

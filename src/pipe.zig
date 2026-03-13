@@ -9,12 +9,13 @@ pub const Pipe = struct {
         .drain = drain,
     };
     const Intern = struct {
+        io: std.Io,
         buffer: []u8,
         head: usize = 0,
         len: usize = 0,
-        mutex: std.Thread.Mutex = .{},
-        cond: std.Thread.Condition = .{},
-            data: [2][]u8 = undefined,
+        mutex: std.Io.Mutex = .init,
+        cond: std.Io.Condition = .init,
+        data: [2][]u8 = undefined,
 
         fn isEmpty(i: @This()) bool {
             return i.len == 0;
@@ -39,20 +40,20 @@ pub const Pipe = struct {
                 // Buffer is empty
                 // Set head to 0 to optimize placement
                 i.head = 0;
-                    return i.data[0..0];
+                return i.data[0..0];
             } else if (i.len == i.buffer.len) {
                 // Buffer is full
-                    i.data[0] = i.buffer;
-                    return i.data[0..1];
+                i.data[0] = i.buffer;
+                return i.data[0..1];
             } else if (i.head + i.len <= i.buffer.len) {
                 // Buffer is contiguous
-                    i.data[0] = i.buffer[i.head .. i.head + i.len];
-                    return i.data[0..1];
+                i.data[0] = i.buffer[i.head .. i.head + i.len];
+                return i.data[0..1];
             } else {
                 // Buffer wraps over end
-                    i.data[0] = i.buffer[i.head..];
-                    i.data[1] = i.buffer[0 .. i.len - (i.buffer.len - i.head)];
-                    return i.data[0..2];
+                i.data[0] = i.buffer[i.head..];
+                i.data[1] = i.buffer[0 .. i.len - (i.buffer.len - i.head)];
+                return i.data[0..2];
             }
         }
         fn unused(i: *Intern) []const []u8 {
@@ -60,28 +61,28 @@ pub const Pipe = struct {
                 // Buffer is empty: unused is the full buffer
                 // Set head to 0 to optimize placement
                 i.head = 0;
-                    i.data[0] = i.buffer;
-                    return i.data[0..1];
+                i.data[0] = i.buffer;
+                return i.data[0..1];
             } else if (i.len == i.buffer.len) {
                 // Buffer is full: unused is empty
-                    return i.data[0..0];
+                return i.data[0..0];
             } else if (i.head + i.len < i.buffer.len) {
                 // Buffer has unused space after
                 if (i.head == 0) {
                     // and no unused space in front
-                        i.data[0] = i.buffer[i.head + i.len ..];
-                        return i.data[0..1];
+                    i.data[0] = i.buffer[i.head + i.len ..];
+                    return i.data[0..1];
                 } else {
                     // and unused space in front
-                        i.data[0] = i.buffer[i.head + i.len ..];
-                        i.data[1] = i.buffer[0..i.head];
-                        return i.data[0..2];
+                    i.data[0] = i.buffer[i.head + i.len ..];
+                    i.data[1] = i.buffer[0..i.head];
+                    return i.data[0..2];
                 }
             } else {
                 // Unused buffer is contiguous and runs till i.head
                 const len = i.buffer.len - i.len;
-                    i.data[0] = i.buffer[i.head - len .. i.head];
-                    return i.data[0..1];
+                i.data[0] = i.buffer[i.head - len .. i.head];
+                return i.data[0..1];
             }
         }
     };
@@ -90,13 +91,14 @@ pub const Pipe = struct {
     intern: Intern,
     reader: std.Io.Reader,
 
-    pub fn init(wb: []u8, ib: []u8, rb: []u8) Self {
+    pub fn init(io: std.Io, wb: []u8, ib: []u8, rb: []u8) Self {
         return Self{
             .writer = .{
                 .vtable = &writer_vtable,
                 .buffer = wb,
             },
             .intern = Intern{
+                .io = io,
                 .buffer = ib,
             },
             .reader = .{
@@ -147,11 +149,11 @@ pub const Pipe = struct {
         const orig_src_len = src.len;
 
         {
-            intern.mutex.lock();
-            defer intern.mutex.unlock();
+            intern.mutex.lock(intern.io) catch {};
+            defer intern.mutex.unlock(intern.io);
 
             while (intern.is_full()) {
-                intern.cond.wait(&intern.mutex);
+                intern.cond.wait(intern.io, &intern.mutex) catch {};
             }
 
             // Copy `src` into intern
@@ -171,7 +173,7 @@ pub const Pipe = struct {
             }
         }
 
-        intern.cond.signal();
+        intern.cond.signal(intern.io);
 
         return if (copy_from_buffer) 0 else orig_src_len - src.len;
     }
@@ -183,11 +185,11 @@ pub const Pipe = struct {
         var intern = &p.intern;
 
         {
-            intern.mutex.lock();
-            defer intern.mutex.unlock();
+            intern.mutex.lock(intern.io) catch {};
+            defer intern.mutex.unlock(intern.io);
 
             while (intern.isEmpty()) {
-                intern.cond.wait(&intern.mutex);
+                intern.cond.wait(intern.io, &intern.mutex) catch {};
             }
 
             if (r.seek == r.end) {
@@ -212,7 +214,7 @@ pub const Pipe = struct {
             }
         }
 
-        intern.cond.signal();
+        intern.cond.signal(intern.io);
 
         return 0;
     }
@@ -225,7 +227,7 @@ test "pipe.Pipe" {
     var ib: [4]u8 = undefined;
     var rb: [4]u8 = undefined;
 
-    var pipe: Pipe = .init(&wb, &ib, &rb);
+    var pipe: Pipe = .init(ut.io, &wb, &ib, &rb);
     defer pipe.deinit();
 
     try pipe.writer.print("ab", .{});
@@ -245,7 +247,7 @@ test "pipe.Pipe" {
 }
 
 test "pipe.Pipe threading" {
-    // const ut = std.testing;
+    const ut = std.testing;
 
     var wb: [4]u8 = undefined;
     var ib: [4]u8 = undefined;
@@ -268,7 +270,7 @@ test "pipe.Pipe threading" {
             }
         }
     };
-    var ctx = Ctx{ .pipe = Pipe.init(&wb, &ib, &rb) };
+    var ctx = Ctx{ .pipe = Pipe.init(ut.io, &wb, &ib, &rb) };
     defer ctx.pipe.deinit();
 
     var prod: std.Thread = try .spawn(.{}, Ctx.producer, .{&ctx});

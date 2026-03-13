@@ -9,8 +9,8 @@ pub const Ignore = struct {
     const Strings = std.ArrayList([]const u8);
 
     a: std.mem.Allocator,
-    globs: Globs = .{},
-    antiglobs: Globs = .{},
+    globs: Globs = .empty,
+    antiglobs: Globs = .empty,
 
     pub fn init(a: std.mem.Allocator) Ignore {
         return Ignore{ .a = a };

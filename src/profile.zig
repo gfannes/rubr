@@ -18,24 +18,26 @@ var measurements = [_]Measurement{Measurement{}} ** count;
 pub const Scope = struct {
     const Self = @This();
 
+    io: std.Io,
+
     id: Id,
-    start: std.time.Instant,
+    start_ts: std.Io.Timestamp,
     w: *std.Io.Writer,
 
-    pub fn init(id: Id, w: *std.Io.Writer) Scope {
-        return Scope{ .id = id, .start = Self.now(), .w = w };
+    pub fn init(io: std.Io, id: Id, w: *std.Io.Writer) Scope {
+        return Scope{ .io = io, .id = id, .start_ts = std.Io.Clock.now(.real, io), .w = w };
     }
     pub fn deinit(self: Self) void {
-        const elapse = now().since(self.start);
-        measurements[@intFromEnum(self.id)].max = elapse;
-        const a = @divFloor(elapse, 1_000_000_000);
-        const b = elapse - a * 1_000_000_000;
+        const elapse_ns = self.start_ts.durationTo(self.now()).nanoseconds;
+        measurements[@intFromEnum(self.id)].max = elapse_ns;
+        const a = @divFloor(elapse_ns, 1_000_000_000);
+        const b = elapse_ns - a * 1_000_000_000;
         self.w.print("elapse: {}.{:0>9.9}s\n", .{ a, @as(u64, @intCast(b)) }) catch {};
         self.w.flush() catch {};
     }
 
-    fn now() std.time.Instant {
-        return std.time.Instant.now() catch @panic("Cannot get current time");
+    fn now(self: Self) std.Io.Timestamp {
+        return std.Io.Clock.now(.real, self.io);
     }
 };
 
@@ -46,7 +48,7 @@ test "Scope" {
     defer aw.deinit();
 
     {
-        const s = Scope.init(Id.A, &aw.writer);
+        const s = Scope.init(ut.io, Id.A, &aw.writer);
         defer s.deinit();
 
         std.debug.print("Blabla\n", .{});

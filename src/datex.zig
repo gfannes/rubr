@@ -20,7 +20,7 @@ pub const Date = struct {
 
     epoch_day: std.time.epoch.EpochDay,
 
-    pub fn today() !Date {
+    pub fn today(io: std.Io) !Date {
         if (builtin.os.tag == .windows) {
             var st: SYSTEMTIME = undefined;
             GetLocalTime(&st);
@@ -40,8 +40,10 @@ pub const Date = struct {
 
             return .{ .epoch_day = .{ .day = day } };
         } else {
-            const time = try std.posix.clock_gettime(.REALTIME);
-            const esecs = std.time.epoch.EpochSeconds{ .secs = @intCast(time.sec) };
+            // const time = try std.posix.clock_gettime(.REALTIME);
+            // const secs = time.sec;
+            const secs = std.Io.Clock.now(.real, io).toSeconds();
+            const esecs = std.time.epoch.EpochSeconds{ .secs = @intCast(secs) };
             return .{ .epoch_day = esecs.getEpochDay() };
         }
     }
@@ -62,6 +64,8 @@ pub const Date = struct {
 };
 
 test "datex" {
-    const today = try Date.today();
+    const ut = std.testing;
+
+    const today = try Date.today(ut.io);
     std.debug.print("{f}\n", .{today});
 }

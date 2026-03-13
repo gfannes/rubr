@@ -40,8 +40,9 @@ pub const Instance = struct {
     log: Log = undefined,
     gpa: GPA = undefined,
     aa: AA = undefined,
-    io: std.Io.Threaded = undefined,
-    maybe_start: ?std.time.Instant = null,
+    io_threaded: std.Io.Threaded = undefined,
+    io: std.Io = undefined,
+    start_ts: std.Io.Timestamp = undefined,
     stdio: StdIO = undefined,
 
     pub fn init(self: *Self) void {
@@ -49,17 +50,17 @@ pub const Instance = struct {
         const a = self.gpa.allocator();
         self.envmap = self.environ.createMap(a) catch std.process.Environ.Map.init(a);
         self.aa = AA.init(a);
-        self.io = std.Io.Threaded.init(a, .{ .environ = self.environ });
-        const io = self.io.io();
-        self.log = Log{ .io = io };
+        self.io_threaded = std.Io.Threaded.init(a, .{ .environ = self.environ });
+        self.io = self.io_threaded.io();
+        self.log = Log{ .io = self.io };
         self.log.init();
-        self.maybe_start = std.time.Instant.now() catch null;
-        self.stdio.init(io);
+        self.start_ts = std.Io.Clock.now(.real, self.io);
+        self.stdio.init(self.io);
     }
     pub fn deinit(self: *Self) void {
         self.stdio.deinit();
         self.log.deinit();
-        self.io.deinit();
+        self.io_threaded.deinit();
         self.aa.deinit();
         self.envmap.deinit();
         if (self.gpa.deinit() == .leak) {
@@ -71,7 +72,7 @@ pub const Instance = struct {
         return .{
             .a = self.gpa.allocator(),
             .aa = self.aa.allocator(),
-            .io = self.io.io(),
+            .io = self.io,
             .envmap = &self.envmap,
             .log = &self.log,
             .stdout = &self.stdio.stdout_writer.interface,
@@ -79,15 +80,14 @@ pub const Instance = struct {
         };
     }
 
-    pub fn duration_ns(self: Self) u64 {
-        const start = self.maybe_start orelse return 0;
-        const now = std.time.Instant.now() catch return 0;
-        return now.since(start);
+    pub fn duration_ns(self: Self) i96 {
+        const duration = self.start_ts.durationTo(std.Io.Clock.now(.real, self.io));
+        return duration.nanoseconds;
     }
 };
 
-pub fn duration_ns(env: Env_) u64 {
-    const inst: *const Instance = @fieldParentPtr("log", env.log);
+pub fn duration_ns(env: Env_) i96 {
+    const inst: *const Instance = @alignCast(@fieldParentPtr("log", env.log));
     return inst.duration_ns();
 }
 

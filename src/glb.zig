@@ -79,7 +79,7 @@ pub const Glob = struct {
     const Parts = std.ArrayList(Part);
 
     a: std.mem.Allocator,
-    parts: Parts = .{},
+    parts: Parts = .empty,
     config: ?*Config = null,
 
     pub fn init(config: Config, ma: std.mem.Allocator) !Glob {

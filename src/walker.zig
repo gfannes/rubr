@@ -34,7 +34,7 @@ pub const Walker = struct {
 
     ignore_offset: usize = 0,
 
-    ignore_stack: IgnoreStack = .{},
+    ignore_stack: IgnoreStack = .empty,
 
     pub fn deinit(self: *Walker) void {
         for (self.ignore_stack.items) |*item| {

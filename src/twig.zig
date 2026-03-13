@@ -50,7 +50,7 @@ pub const Root = struct {
     a: std.mem.Allocator = undefined,
     io: std.Io = undefined,
     writer: std.Io.File.Writer = undefined,
-    mutex: std.Thread.Mutex = .{},
+    mutex: std.Io.Mutex = .init,
     current: ?*Scope = null,
 
     pub fn init(self: *Root, env: Env, file: std.Io.File, buffer: []u8) void {
@@ -70,6 +70,7 @@ threadlocal var tl_current: ?*Scope = null;
 pub const Scope = struct {
     const Self = @This();
 
+    io: std.Io,
     name: []const u8,
     id: ?usize = null,
     root: ?*Root = null,
@@ -84,32 +85,32 @@ pub const Scope = struct {
         if (self.parent == null)
             self.parent = tl_current;
 
-        r.mutex.lock();
+        r.mutex.lock(self.io) catch {};
         Marker.create('#', self.parent, self.name, self.id, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'enter'");
         tl_current = self;
         r.current = self;
-        r.mutex.unlock();
+        r.mutex.unlock(self.io);
     }
     pub fn leave(self: *Self) void {
         std.debug.assert(self.root != null);
         var r = self.root.?;
 
-        r.mutex.lock();
+        r.mutex.lock(self.io) catch {};
         Marker.create('.', self.parent, self.name, self.id, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'leave'");
         tl_current = self.parent;
         r.current = self.parent;
-        r.mutex.unlock();
+        r.mutex.unlock(self.io);
     }
 
     pub fn mark(self: *Self, name: []const u8) *Self {
         std.debug.assert(self.root != null);
         var r = self.root.?;
 
-        r.mutex.lock();
+        r.mutex.lock(self.io) catch {};
         Marker.create('*', self, name, null, r.current == tl_current).format(&r.writer.interface) catch @panic("Failed to write 'mark'");
         tl_current = self;
         r.current = self;
-        r.mutex.unlock();
+        r.mutex.unlock(self.io);
 
         return self;
     }
@@ -118,13 +119,13 @@ pub const Scope = struct {
         std.debug.assert(self.root != null);
         const r = self.root.?;
 
-        r.mutex.lock();
+        r.mutex.lock(self.io) catch {};
         if (r.current != self) {
             Marker.create('~', self.parent, self.name, self.id, false).format(&r.writer.interface) catch @panic("Failed to write 'print'");
             r.current = self;
         }
         r.writer.interface.print(fmt, args) catch @panic("Failed to write 'print'");
-        r.mutex.unlock();
+        r.mutex.unlock(self.io);
     }
 };
 
@@ -175,12 +176,12 @@ test "twig" {
     root.init(env, std.Io.File.stderr(), &buf);
     defer root.deinit();
 
-    var ci = Scope{ .name = "ci" };
+    var ci = Scope{ .io = ut.io, .name = "ci" };
     ci.enter();
     defer ci.leave();
 
     {
-        var build = Scope{ .name = "build" };
+        var build = Scope{ .io = ut.io, .name = "build" };
         build.enter();
         defer build.leave();
         build.mark("object").print("a.cpp", .{});
@@ -188,13 +189,13 @@ test "twig" {
     }
 
     {
-        var utt = Scope{ .name = "ut" };
+        var utt = Scope{ .io = ut.io, .name = "ut" };
         utt.enter();
         defer utt.leave();
 
         const Worker = struct {
             fn call(ix: usize, parent: *Scope) !void {
-                var s = Scope{ .name = "work", .id = ix, .parent = parent };
+                var s = Scope{ .io = ut.io, .name = "work", .id = ix, .parent = parent };
                 s.enter();
                 defer s.leave();
 

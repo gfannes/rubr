@@ -89,7 +89,7 @@ test "index.Range" {
     try ut.expectEqual(false, r.empty());
     try ut.expectEqual(3, r.size());
 
-    var ixs = std.ArrayList(usize){};
+    var ixs = std.ArrayList(usize).empty;
     defer ixs.deinit(ut.allocator);
     for (r.begin..r.end) |ix| {
         try ixs.append(ut.allocator, ix);
