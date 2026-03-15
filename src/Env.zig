@@ -18,7 +18,7 @@ stderr: *std.Io.Writer = undefined,
 
 pub const Instance = struct {
     const Self = @This();
-    const GPA = std.heap.GeneralPurposeAllocator(.{});
+    const DA = std.heap.DebugAllocator(.{});
     const AA = std.heap.ArenaAllocator;
     const StdIO = struct {
         stdout_writer: std.Io.File.Writer = undefined,
@@ -38,7 +38,7 @@ pub const Instance = struct {
     environ: std.process.Environ = std.process.Environ.empty,
     envmap: std.process.Environ.Map = undefined,
     log: Log = undefined,
-    gpa: GPA = undefined,
+    gpa: DA = undefined,
     aa: AA = undefined,
     io_threaded: std.Io.Threaded = undefined,
     io: std.Io = undefined,
@@ -46,7 +46,7 @@ pub const Instance = struct {
     stdio: StdIO = undefined,
 
     pub fn init(self: *Self) void {
-        self.gpa = GPA{};
+        self.gpa = DA{};
         const a = self.gpa.allocator();
         self.envmap = self.environ.createMap(a) catch std.process.Environ.Map.init(a);
         self.aa = AA.init(a);
