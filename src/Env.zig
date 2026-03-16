@@ -86,16 +86,32 @@ pub const Instance = struct {
     }
 };
 
+pub fn for_ut() Env_ {
+    const ut = std.testing;
+    return .{
+        .a = ut.allocator,
+        .aa = ut.allocator,
+        .io = ut.io,
+    };
+}
+
 pub fn duration_ns(env: Env_) i96 {
     const inst: *const Instance = @alignCast(@fieldParentPtr("log", env.log));
     return inst.duration_ns();
 }
 
-test "Env" {
+test "Env.Instance" {
     var instance: Instance = .{};
     instance.init();
     defer instance.deinit();
 
     const env = instance.env();
     _ = env;
+}
+
+test "Env from ut" {
+    const env = Env_.for_ut();
+
+    const buf = try env.a.alloc(u8, 11);
+    defer env.a.free(buf);
 }
