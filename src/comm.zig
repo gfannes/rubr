@@ -1,3 +1,9 @@
+// Sedes protocol that supports a meronomy
+// - Leafs are written as id-bytesize-value where id should odd and >= 3
+// - Composites are writter as id-body-close where id should be even and >= 2
+// - Ids and size are written as a VLC, big-endian, msbit indicates if a next byte will follow
+// - close == 1
+
 const std = @import("std");
 
 const util = @import("util.zig");
