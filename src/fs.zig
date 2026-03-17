@@ -18,15 +18,20 @@ pub const Path = struct {
         if (str.len > max_len)
             return Error.BufferTooSmall;
         self.len = str.len;
-        @memcpy(self.buffer[0..self.len], str);
+        @memmove(self.buffer[0..self.len], str);
     }
 
-    pub fn home() !Self {
+    pub fn home(env: Env) !Self {
+        const name = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
+        const value = env.envmap.get(name) orelse return error.CouldNotFindHome;
+
         var res = Self{};
-        var fba = std.heap.FixedBufferAllocator.init(&res.buffer);
-        const env_var = try std.process.getEnvVarOwned(fba.allocator(), "HOME");
-        res.len = env_var.len;
-        @memmove(res.buffer[0..res.len], env_var);
+
+        if (value.len > max_len)
+            return error.BufferTooSmall;
+        res.len = value.len;
+
+        @memmove(res.buffer[0..res.len], value);
         return res;
     }
 
@@ -37,11 +42,11 @@ pub const Path = struct {
             self.buffer[self.len] = '/';
             self.len += 1;
         }
-        @memcpy(self.buffer[self.len .. self.len + part.len], part);
+        @memmove(self.buffer[self.len .. self.len + part.len], part);
         self.len += part.len;
     }
 
-    pub fn path(self: Self) []const u8 {
+    pub fn path(self: *const Self) []const u8 {
         return self.buffer[0..self.len];
     }
 };
