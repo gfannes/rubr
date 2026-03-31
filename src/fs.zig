@@ -1,6 +1,5 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const Env = @import("Env.zig");
 
 pub const Error = error{
     BufferTooSmall,
@@ -22,9 +21,10 @@ pub const Path = struct {
         @memmove(self.buffer[0..self.len], str);
     }
 
-    pub fn home(env: Env) !Self {
+    // Use env.envmap
+    pub fn home(envmap: *const std.process.Environ.Map) !Self {
         const name = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
-        const value = env.envmap.get(name) orelse return error.CouldNotFindHome;
+        const value = envmap.get(name) orelse return error.CouldNotFindHome;
 
         var res = Self{};
 
@@ -51,56 +51,34 @@ pub const Path = struct {
         return self.buffer[0..self.len];
     }
 
-    pub fn exists(self: *const Self, env: Env) bool {
-        const file = std.Io.Dir.openFileAbsolute(env.io, self.path(), .{}) catch return false;
-        defer file.close(env.io);
+    pub fn exists(self: *const Self, io: std.Io) bool {
+        const file = std.Io.Dir.openFileAbsolute(io, self.path(), .{}) catch return false;
+        defer file.close(io);
         return true;
     }
 
-    pub fn read(self: *const Self, env: Env) ![]u8 {
-        const file = try std.Io.Dir.openFileAbsolute(env.io, self.path(), .{});
-        defer file.close(env.io);
-        const stat = try file.stat(env.io);
-        const content = try env.a.alloc(u8, stat.size);
-        const size = try file.readPositionalAll(env.io, content, 0);
+    pub fn read(self: *const Self, io: std.Io, a: std.mem.Allocator) ![]u8 {
+        const file = try std.Io.Dir.openFileAbsolute(io, self.path(), .{});
+        defer file.close(io);
+        const stat = try file.stat(io);
+        const content = try a.alloc(u8, stat.size);
+        const size = try file.readPositionalAll(io, content, 0);
         if (size != stat.size)
             return error.CouldNotReadAll;
         return content;
     }
-    pub fn readSentinel(self: *const Self, env: Env) ![:0]u8 {
-        const file = try std.Io.Dir.openFileAbsolute(env.io, self.path(), .{});
-        defer file.close(env.io);
-        const stat = try file.stat(env.io);
-        const content = try env.a.alloc(u8, stat.size + 1);
-        const size = try file.readPositionalAll(env.io, content[0..stat.size], 0);
+    pub fn readSentinel(self: *const Self, io: std.Io, a: std.mem.Allocator) ![:0]u8 {
+        const file = try std.Io.Dir.openFileAbsolute(io, self.path(), .{});
+        defer file.close(io);
+        const stat = try file.stat(io);
+        const content = try a.alloc(u8, stat.size + 1);
+        const size = try file.readPositionalAll(io, content[0..stat.size], 0);
         if (size != stat.size)
             return error.CouldNotReadAll;
         content[stat.size] = 0;
         return content[0..stat.size :0];
     }
 };
-
-test "fs.Path" {
-    const ut = std.testing;
-
-    var p = Path{};
-    try ut.expectEqualStrings("", p.path());
-
-    try p.add("abc");
-    try ut.expectEqualStrings("abc", p.path());
-
-    try p.add("def");
-    try ut.expectEqualStrings("abc/def", p.path());
-}
-
-pub fn homePathAlloc(env: Env, maybe_part: ?[]const u8) ![]u8 {
-    const name = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
-    const home = env.envmap.get(name) orelse return error.CouldNotFindHome;
-    return if (maybe_part) |part|
-        try std.mem.concat(env.a, u8, &[_][]const u8{ home, "/", part })
-    else
-        try env.a.dupe(u8, home);
-}
 
 pub fn cwdPathAlloc(io: std.Io, a: std.mem.Allocator, maybe_part: ?[]const u8) ![:0]u8 {
     return try std.Io.Dir.cwd().realPathFileAlloc(io, maybe_part orelse ".", a);
@@ -123,23 +101,15 @@ pub fn deleteTree(io: std.Io, path: []const u8) !void {
     } else try std.Io.Dir.cwd().deleteTree(io, path);
 }
 
-test "fs" {
+test "fs.Path" {
     const ut = std.testing;
 
-    var envmap = try std.process.Environ.empty.createMap(ut.allocator);
-    defer envmap.deinit();
-    const name = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
-    try envmap.put(name, "/home/geertf");
+    var p = Path{};
+    try ut.expectEqualStrings("", p.path());
 
-    const env = Env{ .a = ut.allocator, .io = ut.io, .envmap = &envmap };
+    try p.add("abc");
+    try ut.expectEqualStrings("abc", p.path());
 
-    {
-        const home = try homePathAlloc(env, null);
-        defer ut.allocator.free(home);
-
-        std.debug.print("home: {s}\n", .{home});
-    }
-
-    try ut.expect(isDirectory(ut.io, "src"));
-    try ut.expect(!isDirectory(ut.io, "not_a_dir"));
+    try p.add("def");
+    try ut.expectEqualStrings("abc/def", p.path());
 }
