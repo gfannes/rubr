@@ -43,6 +43,12 @@ pub const Args = struct {
 
         return Arg{ .arg = arg };
     }
+
+    // Can only be called when there was something popped first
+    pub fn unpop(self: *Self) void {
+        self.argv.ptr -= 1;
+        self.argv.len += 1;
+    }
 };
 
 pub const Arg = struct {
@@ -68,10 +74,21 @@ test "cli" {
     var args = Args{ .env = env_inst.env() };
     try args.setupFromData(&[_][]const u8{ "exe", "-h" });
 
-    const exe = args.pop() orelse unreachable;
-    try ut.expectEqualSlices(u8, "exe", exe.arg);
-    try ut.expectEqual(true, exe.is("exe", "exe"));
-    try ut.expectEqual(false, exe.is("???", "???"));
+    {
+        const exe = args.pop() orelse unreachable;
+        try ut.expectEqualSlices(u8, "exe", exe.arg);
+        try ut.expectEqual(true, exe.is("exe", "exe"));
+        try ut.expectEqual(false, exe.is("???", "???"));
+    }
+
+    args.unpop();
+
+    {
+        const exe = args.pop() orelse unreachable;
+        try ut.expectEqualSlices(u8, "exe", exe.arg);
+        try ut.expectEqual(true, exe.is("exe", "exe"));
+        try ut.expectEqual(false, exe.is("???", "???"));
+    }
 
     const help = args.pop() orelse unreachable;
     try ut.expectEqualSlices(u8, "-h", help.arg);
