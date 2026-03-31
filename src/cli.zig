@@ -13,7 +13,8 @@ pub const Args = struct {
 
         self.argv = try a.alloc([]const u8, os_args.vector.len);
 
-        var it = os_args.iterate();
+        var it = try os_args.iterateAllocator(self.env.a);
+        defer it.deinit();
         var ix: usize = 0;
         while (it.next()) |os_arg| {
             self.argv[ix] = try a.dupe(u8, os_arg);
@@ -33,7 +34,7 @@ pub const Args = struct {
         if (self.argv.len == 0) return null;
 
         const a = self.env.aa;
-        const arg = a.dupe(u8, std.mem.sliceTo(self.argv[0], 0)) catch return null;
+        const arg = a.dupe(u8, self.argv[0]) catch return null;
         self.argv.ptr += 1;
         self.argv.len -= 1;
 
