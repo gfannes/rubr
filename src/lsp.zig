@@ -53,7 +53,7 @@ pub const Server = struct {
             try log.print("[Request]({s})\n", .{self.content.items});
             try log.flush();
         }
-        self.request = (try std.json.parseFromSlice(dto.Request, self.aa.allocator(), self.content.items, .{})).value;
+        self.request = (try std.json.parseFromSlice(dto.Request, self.aa.allocator(), self.content.items, .{ .ignore_unknown_fields = true })).value;
 
         return &(self.request orelse unreachable);
     }
@@ -186,7 +186,7 @@ pub const Client = struct {
         }
 
         const resp = self.response_(T);
-        resp.* = (try std.json.parseFromSlice(T, self.aa.allocator(), self.content.items, .{})).value;
+        resp.* = (try std.json.parseFromSlice(T, self.aa.allocator(), self.content.items, .{ .ignore_unknown_fields = true })).value;
 
         return resp;
     }
