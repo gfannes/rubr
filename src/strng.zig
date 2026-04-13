@@ -90,10 +90,24 @@ pub const Strange = struct {
         }
         return null;
     }
+    pub fn popOneBack(self: *Self) ?u8 {
+        if (self.content.len > 0) {
+            defer self._popBack(1);
+            return self.content[self.content.len - 1];
+        }
+        return null;
+    }
 
     pub fn popStr(self: *Self, s: []const u8) bool {
         if (std.mem.startsWith(u8, self.content, s)) {
             self._popFront(s.len);
+            return true;
+        }
+        return false;
+    }
+    pub fn popStrBack(self: *Self, s: []const u8) bool {
+        if (std.mem.endsWith(u8, self.content, s)) {
+            self._popBack(s.len);
             return true;
         }
         return false;
@@ -163,6 +177,12 @@ pub const Strange = struct {
         defer self._popFront(count);
         return self.content[0..count];
     }
+    pub fn popBack(self: *Self, count: usize) ?[]const u8 {
+        if (self.content.len < count)
+            return null;
+        defer self._popBack(count);
+        return self.content[self.content.len - count ..];
+    }
 
     fn _popFront(self: *Self, count: usize) void {
         self.content.ptr += count;
@@ -220,6 +240,26 @@ test "Strange.popCharBack" {
     try ut.expectEqual(false, strange.popCharBack('a'));
 }
 
+test "Strange.popOne" {
+    const ut = std.testing;
+
+    var strange = Strange{ .content = "abc" };
+    try ut.expectEqual('a', strange.popOne());
+    try ut.expectEqual('b', strange.popOne());
+    try ut.expectEqual('c', strange.popOne());
+    try ut.expectEqual(null, strange.popOne());
+}
+
+test "Strange.popOneBack" {
+    const ut = std.testing;
+
+    var strange = Strange{ .content = "abc" };
+    try ut.expectEqual('c', strange.popOneBack());
+    try ut.expectEqual('b', strange.popOneBack());
+    try ut.expectEqual('a', strange.popOneBack());
+    try ut.expectEqual(null, strange.popOneBack());
+}
+
 test "Strange.popStr" {
     const ut = std.testing;
 
@@ -228,6 +268,16 @@ test "Strange.popStr" {
     try ut.expectEqual(false, strange.popStr("ab"));
     try ut.expectEqual(true, strange.popStr("c"));
     try ut.expectEqual(false, strange.popStr("c"));
+}
+
+test "Strange.popStrBack" {
+    const ut = std.testing;
+
+    var strange = Strange{ .content = "abc" };
+    try ut.expectEqual(true, strange.popStrBack("bc"));
+    try ut.expectEqual(false, strange.popStrBack("bc"));
+    try ut.expectEqual(true, strange.popStrBack("a"));
+    try ut.expectEqual(false, strange.popStrBack("a"));
 }
 
 test "Strange.popInt" {
@@ -297,4 +347,24 @@ test "Strange.front Strange.back" {
     _ = strange.popAll();
     try ut.expectEqual(@as(?u8, null), strange.front());
     try ut.expectEqual(@as(?u8, null), strange.back());
+}
+
+test "Strange.popFront" {
+    const ut = std.testing;
+
+    var strange = Strange{ .content = "abc" };
+    try ut.expectEqual(null, strange.popFront(4));
+    try ut.expectEqualStrings("ab", strange.popFront(2) orelse return error.TestFailed);
+    try ut.expectEqualStrings("c", strange.popFront(1) orelse return error.TestFailed);
+    try ut.expectEqual(null, strange.popFront(1));
+}
+
+test "Strange.popBack" {
+    const ut = std.testing;
+
+    var strange = Strange{ .content = "abc" };
+    try ut.expectEqual(null, strange.popBack(4));
+    try ut.expectEqualStrings("bc", strange.popBack(2) orelse return error.TestFailed);
+    try ut.expectEqualStrings("a", strange.popBack(1) orelse return error.TestFailed);
+    try ut.expectEqual(null, strange.popBack(1));
 }
