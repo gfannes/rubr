@@ -89,6 +89,19 @@ pub fn toFile(self: *Self, filepath: []const u8, options: Options) !void {
     self.initWriter();
 }
 
+pub fn toStdout(self: *Self) !void {
+    try self.closeWriter();
+
+    self._file = std.Io.File.stdout();
+    self.initWriter();
+}
+pub fn toStderr(self: *Self) !void {
+    try self.closeWriter();
+
+    self._file = std.Io.File.stderr();
+    self.initWriter();
+}
+
 pub fn setLevel(self: *Self, lvl: usize) void {
     self._lvl = lvl;
 }
