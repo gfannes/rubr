@@ -26,15 +26,15 @@ pub fn Pool(Job: type) type {
             self.queue = .init(self.queue_buffer.items);
 
             try self.threads.resize(self.env.a, size);
-            for (self.threads.items, 0..) |*thread, ix0| {
-                thread.* = try std.Thread.spawn(.{}, worker, .{ self, ix0 });
+            for (self.threads.items, 0..) |*thrd, ix0| {
+                thrd.* = try std.Thread.spawn(.{}, worker, .{ self, ix0 });
             }
         }
         pub fn deinit(self: *Self) void {
             self.queue.close(self.env.io);
 
-            for (self.threads.items) |thread| {
-                thread.join();
+            for (self.threads.items) |thrd| {
+                thrd.join();
             }
             self.threads.deinit(self.env.a);
 
