@@ -21,6 +21,7 @@ pub const algo = @import("algo.zig");
 pub const util = @import("util.zig");
 pub const comm = @import("comm.zig");
 pub const pipe = @import("pipe.zig");
+pub const thread = @import("thread.zig");
 pub const twig = @import("twig.zig");
 pub const fs = @import("fs.zig");
 pub const fmt = @import("fmt.zig");
@@ -49,6 +50,7 @@ test {
     ut.refAllDecls(util);
     ut.refAllDecls(comm);
     ut.refAllDecls(pipe);
+    ut.refAllDecls(thread);
     ut.refAllDecls(twig);
     ut.refAllDecls(fs);
     ut.refAllDecls(fmt);
