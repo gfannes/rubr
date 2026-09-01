@@ -1,61 +1,94 @@
 const std = @import("std");
 
-pub const Id = enum {
-    A,
-    B,
-    C,
+pub const Error = error{
+    NotRunning,
+    StillRunning,
 };
+
+pub fn now(io: std.Io) std.Io.Timestamp {
+    return std.Io.Clock.now(.real, io);
+}
 
 const Timestamp = i128;
 
 const Measurement = struct {
-    max: Timestamp = 0,
-};
+    pub const Self = @This();
 
-const count = @typeInfo(Id).@"enum".fields.len;
-var measurements = [_]Measurement{Measurement{}} ** count;
+    sum: Timestamp = 0,
+    max: Timestamp = 0,
+
+    pub fn format(self: Self, w: *std.Io.Writer) !void {
+        try w.print("[Measurement]", .{});
+        try format_(self.sum, "sum", w);
+        try format_(self.max, "max", w);
+        try w.flush();
+    }
+    fn format_(ts: Timestamp, desc: []const u8, w: *std.Io.Writer) !void {
+        const a = @divFloor(ts, 1_000_000_000);
+        const b = ts - a * 1_000_000_000;
+        try w.print("({s}:{}.{:0>9.9}s)", .{ desc, a, @as(u64, @intCast(b)) });
+    }
+};
 
 pub const Scope = struct {
     const Self = @This();
+
+    pub const Id = enum { A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z };
+
+    const count = @typeInfo(Id).@"enum".fields.len;
 
     io: std.Io,
 
     id: Id,
     start_ts: std.Io.Timestamp,
-    w: *std.Io.Writer,
 
-    pub fn init(io: std.Io, id: Id, w: *std.Io.Writer) Scope {
-        return Scope{ .io = io, .id = id, .start_ts = std.Io.Clock.now(.real, io), .w = w };
-    }
-    pub fn deinit(self: Self) void {
-        const elapse_ns = self.start_ts.durationTo(self.now()).nanoseconds;
-        measurements[@intFromEnum(self.id)].max = elapse_ns;
-        const a = @divFloor(elapse_ns, 1_000_000_000);
-        const b = elapse_ns - a * 1_000_000_000;
-        self.w.print("elapse: {}.{:0>9.9}s\n", .{ a, @as(u64, @intCast(b)) }) catch {};
-        self.w.flush() catch {};
+    // &todo: Rework into optional measurements to support reporting of only the observed data
+    measurements: [count]Measurement = [_]Measurement{Measurement{}} ** count,
+    running: bool = true,
+
+    pub fn start(io: std.Io, id: Id) Self {
+        return .{ .io = io, .id = id, .start_ts = now(io) };
     }
 
-    fn now(self: Self) std.Io.Timestamp {
-        return std.Io.Clock.now(.real, self.io);
+    pub fn stop(self: *Self) !void {
+        try self.mark(self.id);
+        self.running = false;
+    }
+
+    pub fn mark(self: *Self, id: Id) !void {
+        if (!self.running)
+            return error.NotRunning;
+
+        const now_ts = now(self.io);
+        const elapse_ns = self.start_ts.durationTo(now_ts).nanoseconds;
+        const m = &self.measurements[@intFromEnum(self.id)];
+        m.sum += elapse_ns;
+        m.max = @max(m.max, elapse_ns);
+
+        self.id = id;
+        self.start_ts = now_ts;
+    }
+
+    pub fn measurement(self: Self, id: Id) !Measurement {
+        if (self.running)
+            return error.StillRunning;
+        return self.measurements[@intFromEnum(id)];
     }
 };
 
 test "Scope" {
     const ut = std.testing;
 
-    var aw = std.Io.Writer.Allocating.init(ut.allocator);
-    defer aw.deinit();
-
     {
-        const s = Scope.init(ut.io, Id.A, &aw.writer);
-        defer s.deinit();
+        var s = Scope.start(ut.io, .A);
+        std.debug.print("A\n", .{});
+        try s.mark(.B);
+        std.debug.print("B\n", .{});
+        try s.mark(.A);
+        std.debug.print("A\n", .{});
+        try s.stop();
 
-        std.debug.print("Blabla\n", .{});
+        std.debug.print("A {f}\n", .{try s.measurement(.A)});
+        std.debug.print("B {f}\n", .{try s.measurement(.B)});
     }
-    std.debug.print("measurement {}\n", .{measurements[@intFromEnum(Id.A)]});
-
-    const str = try aw.toOwnedSlice();
-    defer ut.allocator.free(str);
-    std.debug.print("output: {s}\n", .{str});
 }
