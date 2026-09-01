@@ -36,6 +36,12 @@ pub const Path = struct {
         return res;
     }
 
+    pub fn cwd(io: std.Io) !Self {
+        var rv: Self = .{};
+        rv.len = try std.process.currentPath(io, &rv.buffer);
+        return rv;
+    }
+
     pub fn add(self: *Self, part: []const u8) !void {
         if (self.len + 1 + part.len > max_len)
             return Error.BufferTooSmall;
