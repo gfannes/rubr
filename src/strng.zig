@@ -59,6 +59,7 @@ pub const Strange = struct {
         return count;
     }
 
+    // Pops ch as well but won't include this in the return slice
     pub fn popTo(self: *Self, ch: u8) ?[]const u8 {
         if (std.mem.indexOfScalar(u8, self.content, ch)) |ix| {
             defer self._popFront(ix + 1);
