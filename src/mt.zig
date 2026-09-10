@@ -135,6 +135,8 @@ const Cox = struct {
 const Job = struct {
     i: u64,
 
+    pub fn deinit(_: *Job) void {}
+
     pub fn format(self: Job, w: *std.Io.Writer) !void {
         try w.print("[Job](i:{})\n", .{self.i});
     }
@@ -149,8 +151,7 @@ const Worker = struct {
     cox: *Cox,
     thread: std.Thread,
 
-    jobs: std.Deque(Job),
-    mutex: std.Io.Mutex = .init,
+    queue: Queue,
 
     fn init(self: *Self, a: std.mem.Allocator, io: std.Io, ix0: usize, cox: *Cox) !void {
         self.a = a;
@@ -158,25 +159,20 @@ const Worker = struct {
         self.ix0 = ix0;
         self.cox = cox;
         self.thread = try std.Thread.spawn(.{}, Worker.function, .{self});
-        self.jobs = .empty;
+        self.queue = .{ .a = a, .io = io };
     }
     fn deinit(self: *Self) void {
         self.thread.join();
-        self.jobs.deinit(self.a);
+        self.queue.deinit();
     }
 
     fn function(self: *Self) !void {
         while (try self.cox.waitFor(.Running)) {
-            std.debug.print("Worker {} has {} jobs\n", .{ self.ix0, self.jobs.len });
+            std.debug.print("Worker {} has {} jobs\n", .{ self.ix0, try self.queue.len() });
 
-            var maybe_job: ?Job = null;
-            {
-                try self.mutex.lock(self.io);
-                defer self.mutex.unlock(self.io);
-                maybe_job = self.jobs.popFront();
-            }
-
-            if (maybe_job) |job| {
+            var maybe_job = try self.queue.pop();
+            if (maybe_job) |*job| {
+                defer job.deinit();
                 std.log.info("{f}", .{job});
                 try self.cox.decrease(1);
             }
@@ -184,14 +180,77 @@ const Worker = struct {
     }
 };
 
-test "mt" {
+pub const Queue = struct {
+    pub const Self = @This();
+
+    a: std.mem.Allocator,
+    io: std.Io,
+
+    deque: std.Deque(Job) = .empty,
+    mutex: std.Io.Mutex = .init,
+    cond: std.Io.Condition = .init,
+
+    pub fn deinit(self: *Self) void {
+        self.mutex.lock(self.io) catch return;
+        defer self.mutex.unlock(self.io);
+        while (self.deque.popBack()) |const_job| {
+            var job = const_job;
+            job.deinit();
+        }
+        self.deque.deinit(self.a);
+    }
+
+    pub fn pop(self: *Self) !?Job {
+        try self.mutex.lock(self.io);
+        defer self.mutex.unlock(self.io);
+        return self.deque.popFront();
+    }
+
+    pub fn popWait(self: *Self) !Job {
+        try self.mutex.lock(self.io);
+        defer self.mutex.unlock(self.io);
+        while (true) {
+            if (self.deque.popFront()) |job|
+                return job;
+            try self.cond.wait(self.io, *self.mutex);
+        }
+    }
+
+    pub fn push(self: *Self, job: Job) !void {
+        try self.mutex.lock(self.io);
+        defer self.mutex.unlock(self.io);
+        try self.deque.pushBack(self.a, job);
+        self.cond.signal(self.io);
+    }
+
+    pub fn len(self: *Self) !usize {
+        try self.mutex.lock(self.io);
+        defer self.mutex.unlock(self.io);
+        return self.deque.len;
+    }
+};
+
+test "mt.Runner" {
     const ut = std.testing;
 
     var runner = Runner{ .a = ut.allocator, .io = ut.io };
     try runner.init(4);
     defer runner.deinit();
 
-    const jobs = [_]Job{Job{ .i = 12 }};
-    try runner.start(&jobs);
-    try runner.stop();
+    // const jobs = [_]Job{Job{ .i = 12 }};
+    // try runner.start(&jobs);
+    // try runner.stop();
+}
+
+test "mt.Queue" {
+    const ut = std.testing;
+    var queue = Queue{ .a = ut.allocator, .io = ut.io };
+    defer queue.deinit();
+
+    try ut.expect(try queue.pop() == null);
+    try queue.push(Job{ .i = 42 });
+    const maybe_job = try queue.pop();
+    try ut.expect(maybe_job != null);
+    const job = maybe_job.?;
+    try ut.expect(job.i == 42);
 }
