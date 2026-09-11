@@ -36,7 +36,7 @@ pub const Scope = struct {
     ix: usize,
     start_ts: std.Io.Timestamp,
 
-    measurements: [max_measurement_count]?Measurement = [_]?Measurement{null} ** max_measurement_count,
+    measurements: [max_measurement_count]?Measurement = @splat(null),
     running: bool = true,
 
     pub fn start(io: std.Io, desc: Descriptor) !Self {

@@ -44,7 +44,7 @@ pub fn distance(needle_in: []const u8, haystack_in: []const u8, maybe_skip_count
             return if (cl.case_sensitive)
                 std.mem.indexOfScalar(u8, slice, ch)
             else
-                std.ascii.indexOfIgnoreCase(slice, (&ch)[0..1]);
+                std.ascii.findIgnoreCase(slice, (&ch)[0..1]);
         }
     }{};
 
