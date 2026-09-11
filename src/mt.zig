@@ -67,7 +67,6 @@ const Job = struct {
     io: std.Io,
     i: u64,
     sum: *std.atomic.Value(u64),
-    // sum: *u64,
 
     pub fn deinit(_: *Job) void {}
 
@@ -77,9 +76,8 @@ const Job = struct {
             try std.Io.sleep(self.io, .fromSeconds(@intCast(self.i)), .real);
             std.debug.print("{f} awake\n", .{self.*});
         } else {
-            if (self.i < 2 or self.i == 3000000) {
+            if (self.i < 2 or self.i == 300000) {
                 _ = self.sum.fetchAdd(self.i, .monotonic);
-                // self.sum.* += self.i;
             } else {
                 const orig_i = self.i;
 
@@ -288,57 +286,56 @@ test "mt.Runner" {
     defer runner.deinit();
 
     var sum = std.atomic.Value(u64).init(0);
-    // var sum: u64 = 0;
 
     const jobs = [_]Job{
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
-        .{ .io = ut.io, .i = 1000000, .sum = &sum },
-        .{ .io = ut.io, .i = 2000000, .sum = &sum },
-        .{ .io = ut.io, .i = 3000000, .sum = &sum },
-        .{ .io = ut.io, .i = 4000000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
+        .{ .io = ut.io, .i = 100000, .sum = &sum },
+        .{ .io = ut.io, .i = 200000, .sum = &sum },
+        .{ .io = ut.io, .i = 300000, .sum = &sum },
+        .{ .io = ut.io, .i = 400000, .sum = &sum },
     };
     try runner.start(&jobs);
     try runner.stop();
@@ -402,7 +399,11 @@ test "mt.Queue" {
     defer queue.deinit();
 
     try ut.expect(try queue.pop() == null);
-    try queue.push(Job{ .i = 42 });
+
+    var sum = std.atomic.Value(u64).init(0);
+
+    try queue.push(Job{ .io = ut.io, .i = 42, .sum = &sum });
+
     const maybe_job = try queue.pop();
     try ut.expect(maybe_job != null);
     const job = maybe_job.?;
