@@ -8,10 +8,10 @@ pub fn Tree(Data: type) type {
     return struct {
         const Self = @This();
         pub const Id = usize;
-        pub const Ids = std.ArrayList(usize);
+        pub const Ids = std.ArrayList(Id);
 
         pub const Entry = struct {
-            id: usize,
+            id: Id,
             data: *Data,
         };
 
@@ -20,10 +20,9 @@ pub fn Tree(Data: type) type {
             child_ids: Ids,
             parent_id: ?Id = null,
         };
-        const Nodes = std.ArrayList(Node);
 
         a: std.mem.Allocator,
-        nodes: Nodes = .empty,
+        nodes: std.ArrayList(Node) = .empty,
         root_ids: Ids = .empty,
 
         pub fn init(a: std.mem.Allocator) Self {
