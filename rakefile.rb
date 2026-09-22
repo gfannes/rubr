@@ -10,8 +10,14 @@ desc 'Run all UTs'
 task :ut, %i[filter] do |_task, args|
   sh 'clear'
 
-  filter = (args[:filter] || '').split(':').map { |e| "-Dtest-filter=#{e}" } * ' '
-  sh "zig build test #{filter} -freference-trace=10 --verbose"
+  case :zig_test
+  when :zig_build
+    filter = (args[:filter] || '').split(':').map { |e| "-Dtest-filter=#{e}" } * ' '
+    sh "zig build test #{filter} -freference-trace=10 --verbose"
+  when :zig_test
+    filter = (args[:filter] || '').split(':') * ' '
+    sh "zig test src/root.zig -lc --test-filter #{filter} -freference-trace=10"
+  end
 
   # mode = :release
   # # mode = :debug

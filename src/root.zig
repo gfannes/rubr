@@ -28,6 +28,7 @@ pub const fmt = @import("fmt.zig");
 pub const datex = @import("datex.zig");
 pub const ansi = @import("ansi.zig");
 pub const mt = @import("mt.zig");
+pub const dsp = @import("dsp.zig");
 
 test {
     ut.refAllDecls(@This());
@@ -58,4 +59,5 @@ test {
     ut.refAllDecls(datex);
     ut.refAllDecls(ansi);
     ut.refAllDecls(mt);
+    ut.refAllDecls(dsp);
 }
