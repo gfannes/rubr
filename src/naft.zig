@@ -15,6 +15,13 @@ pub const Node = struct {
     // Indicates if this Node already contains a Node. This is used for deciding newlines etc.
     has_node: bool = false,
 
+    // Helper to implement `fn format()` when `fn write()` is present
+    pub fn write(v: anytype, w: *std.Io.Writer) void {
+        var r = Node.root(w);
+        defer r.deinit();
+        v.write(&r);
+    }
+
     pub fn root(w: ?*std.Io.Writer) Node {
         return .{ .w = w, .has_block = true };
     }
