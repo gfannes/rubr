@@ -15,8 +15,10 @@ task :ut, %i[filter] do |_task, args|
     filter = (args[:filter] || '').split(':').map { |e| "-Dtest-filter=#{e}" } * ' '
     sh "zig build test #{filter} -freference-trace=10 --verbose"
   when :zig_test
-    filter = (args[:filter] || '').split(':') * ' '
-    sh "zig test src/root.zig -lc --test-filter #{filter} -freference-trace=10"
+    test_filter = if (filter = args[:filter])
+                    "--test-filter #{filter.split(':') * ' '}"
+                  end
+    sh "zig test src/root.zig -lc #{test_filter} -freference-trace=10"
   end
 
   # mode = :release
@@ -34,12 +36,12 @@ end
 desc('Export all specified modules into a single file')
 task :export do |_task, args|
   mods = args.extras
-  require_relative("export.rb")
-  export = Export.new()
+  require_relative('export')
+  export = Export.new
   mods.each do |m|
     export.add("src/#{m}.zig")
   end
-  export.write()
+  export.write
 end
 
 desc('Generate .clangd file')

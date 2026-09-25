@@ -12,6 +12,7 @@ pub const IQ = struct {
     freq_count: usize,
     oscillators: []Oscillator,
     estimators: []Estimator,
+    normalize: u32 = 0,
 
     pub fn init(a: std.mem.Allocator, signal_count: usize, freqs: []const f64, fs: f64, response_time: f64) !Self {
         const oscillators = try a.alloc(Oscillator, freqs.len);
@@ -45,6 +46,13 @@ pub const IQ = struct {
 
         for (self.oscillators) |*oscillator|
             oscillator.update();
+
+        self.normalize += 1;
+        if (self.normalize >= 128) {
+            self.normalize = 0;
+            for (self.oscillators) |*oscillator|
+                oscillator.normalize();
+        }
     }
 };
 
@@ -86,6 +94,14 @@ const Oscillator = struct {
     fn update(self: *Self) void {
         self.value = self.value.mul(self.rot);
     }
+
+    fn normalize(self: *Self) void {
+        // Newton approximation of 1/sqrt(s) ~= (3-s)/2 when s ~= 1
+        const s = self.value.re * self.value.re + self.value.im * self.value.im;
+        const scale = 0.5 * (3.0 - s);
+        self.value.re *= scale;
+        self.value.im *= scale;
+    }
 };
 
 test "dsp" {
@@ -105,7 +121,7 @@ test "dsp" {
         try iq.process((&signal)[0..1]);
 
         for (iq.estimators) |estimator| {
-            std.debug.print("| {:.3} {:.3} ", .{ estimator.amplitude(), estimator.phase() });
+            std.debug.print("| {:.4} {:.4} ", .{ estimator.amplitude(), estimator.phase() });
         }
         std.debug.print("|\n", .{});
     }
