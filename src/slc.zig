@@ -24,6 +24,10 @@ pub fn lastPtrUnsafe(slice: anytype) @TypeOf(&slice[0]) {
     return &slice[slice.len - 1];
 }
 
+pub fn get(slice: anytype, ix: usize) ?@TypeOf(slice[0]) {
+    return if (slice.len > ix) slice[ix] else null;
+}
+
 test {
     const ut = std.testing;
 
@@ -36,6 +40,7 @@ test {
         try ut.expectEqual(null, firstPtr(slice));
         try ut.expectEqual(null, last(slice));
         try ut.expectEqual(null, lastPtr(slice));
+        try ut.expectEqual(null, get(slice, 0));
     }
     {
         slice = "abc";
@@ -44,5 +49,9 @@ test {
         try ut.expectEqual(@as(?u8, 'a'), (firstPtr(slice) orelse unreachable).*);
         try ut.expectEqual(@as(?u8, 'c'), last(slice));
         try ut.expectEqual(@as(?u8, 'c'), (lastPtr(slice) orelse unreachable).*);
+        try ut.expectEqual(@as(?u8, 'a'), get(slice, 0));
+        try ut.expectEqual(@as(?u8, 'b'), get(slice, 1));
+        try ut.expectEqual(@as(?u8, 'c'), get(slice, 2));
+        try ut.expectEqual(null, get(slice, 3));
     }
 }
