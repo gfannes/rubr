@@ -27,6 +27,16 @@ pub fn lastPtrUnsafe(slice: anytype) @TypeOf(&slice[0]) {
 pub fn get(slice: anytype, ix: usize) ?@TypeOf(slice[0]) {
     return if (slice.len > ix) slice[ix] else null;
 }
+pub fn getBack(slice: anytype, ix: usize) ?@TypeOf(slice[0]) {
+    return if (slice.len > ix) slice[slice.len - 1 - ix] else null;
+}
+
+pub fn getPtr(slice: anytype, ix: usize) ?@TypeOf(&slice[0]) {
+    return if (slice.len > ix) &slice[ix] else null;
+}
+pub fn getBackPtr(slice: anytype, ix: usize) ?@TypeOf(&slice[0]) {
+    return if (slice.len > ix) &slice[slice.len - 1 - ix] else null;
+}
 
 test {
     const ut = std.testing;
